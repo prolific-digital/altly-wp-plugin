@@ -28,7 +28,7 @@ This plugin is proprietary software. Unauthorized copying, modification, distrib
 
 ## Support
 
-If you need help with this plugin, please contact support at support@yourwebsite.com.
+If you need help with this plugin, please contact support at support@prolificdigital.com.
 
 ## Contributing
 
