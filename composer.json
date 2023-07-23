@@ -1,0 +1,17 @@
+{
+  "require": {
+    "google/cloud-vision": "^1.7",
+    "openai-php/client": "^0.6.3",
+    "intervention/image": "^2.7"
+  },
+  "config": {
+    "allow-plugins": {
+      "php-http/discovery": true
+    }
+  },
+  "autoload": {
+    "psr-4": {
+      "ProlificDigital\\AltTextGenerator\\": "classes"
+    }
+  }
+}
