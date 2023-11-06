@@ -23,7 +23,7 @@ function enqueue_ai_alt_text_script() {
     // Enqueue your script with a unique handle, source URL, and any necessary dependencies
     wp_enqueue_script(
       'altly', // Unique handle
-      plugin_dir_url(__FILE__) . '/react/dist/assets/index.js', // Source URL
+      plugin_dir_url(__FILE__) . '/app/dist/assets/index.js', // Source URL
       array(), // Dependencies (if any)
       '1.0', // Version
       true // Load script in the footer
@@ -32,7 +32,7 @@ function enqueue_ai_alt_text_script() {
     // Enqueue your CSS with a unique handle, source URL, and any necessary dependencies
     wp_enqueue_style(
       'altly', // Unique handle
-      plugin_dir_url(__FILE__) . '/react/dist/assets/index.css', // Source URL
+      plugin_dir_url(__FILE__) . '/app/dist/assets/index.css', // Source URL
       array(), // Dependencies (if any)
       '1.0' // Version
     );
