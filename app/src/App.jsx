@@ -9,10 +9,10 @@ function App() {
   return (
     <>
       <AppShell>
-        <Route path='/dashboard'>
+        <Route path='/wp-admin/upload.php' params={{ screen: 'dashboard' }}>
           <Dashboard />
         </Route>
-        <Route path='/settings'>
+        <Route path='/wp-admin/upload.php' params={{ screen: 'settings' }}>
           <Settings />
         </Route>
       </AppShell>

@@ -9,10 +9,6 @@ const user = {
   imageUrl:
     'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
 };
-// const navigation = [
-//   { name: 'Dashboard', href: 'dashboard', current: true },
-//   { name: 'Settings', href: 'settings', current: false },
-// ];
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -20,8 +16,16 @@ function classNames(...classes) {
 
 export default function AppShell({ children }) {
   const [navigation, setNavigation] = useState([
-    { name: 'Dashboard', href: 'dashboard', current: true },
-    { name: 'Settings', href: 'settings', current: false },
+    {
+      name: 'Dashboard',
+      href: 'upload.php?page=altly&screen=dashboard',
+      current: true,
+    },
+    {
+      name: 'Settings',
+      href: 'upload.php?page=altly&screen=settings',
+      current: false,
+    },
   ]);
 
   const handleSetActiveLink = (selectedHref) => {

@@ -1,22 +1,3 @@
-const stats = [
-  {
-    name: 'Total Images',
-    value: '1000',
-  },
-  {
-    name: 'Missing Alt Text',
-    value: '1000',
-  },
-  // {
-  //   name: 'Confidence Score',
-  //   value: '82%',
-  // },
-  {
-    name: 'Credits Remaining',
-    value: '892',
-  },
-];
-
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }

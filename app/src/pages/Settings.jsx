@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Heading from '../components/Heading';
 import Input from '../components/Input';
 import Form from '../components/Form';
@@ -13,28 +13,50 @@ export default function Example() {
   // State to track whether there's an error
   const [isError, setIsError] = useState(false);
 
+  const [successMessage, setSuccessMessage] = useState('');
+
   // Function to handle input change
   const handleInputChange = (event) => {
     setInputValue(event.target.value);
     setIsError(false); // Reset error state when input changes
   };
 
-  // This requires additional work to manage state.
-
-  // Function to handle save button click
-  const handleSaveClick = (formData) => {
-    const licenseKey = formData['license-key']; // Access the value by using the input field's name as the key
+  const handleSaveClick = async (formData) => {
+    const licenseKey = formData['license-key'];
 
     setInputValue(licenseKey);
 
-    // You can add your validation logic here
-    const isValid = validateInput(licenseKey);
+    try {
+      // Make a POST request to the API endpoint
+      const response = await fetch(
+        'http://plugin-tester.local/wp-json/altly/v1/license-key',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ license_key: licenseKey }), // Send the license key as JSON
+        }
+      );
 
-    // Update the state based on validation result
-    setIsValueCorrect(isValid);
+      const data = await response.json();
 
-    // Set isError to true if validation fails
-    setIsError(!isValid);
+      console.log(data);
+
+      if (response.ok) {
+        setIsValueCorrect(true);
+        setSuccessMessage(data.message);
+      } else {
+        setIsValueCorrect(false);
+        setIsError(true);
+        setSuccessMessage(data.message); // Display the error message from the server
+      }
+    } catch (error) {
+      console.error('Error while making API call:', error);
+      setIsValueCorrect(false);
+      setIsError(true);
+      setSuccessMessage('An error occurred while validating the license key.');
+    }
   };
 
   // Function to validate the input (replace with your validation logic)
@@ -42,6 +64,36 @@ export default function Example() {
     // Replace this with your validation logic
     return value === 'correctValue';
   };
+
+  // Function to load the license key from the API
+  const loadLicenseKey = async () => {
+    try {
+      const response = await fetch(
+        'http://plugin-tester.local/wp-json/altly/v1/license-key'
+      );
+      const data = await response.json();
+
+      if (response.ok && data.license_key) {
+        setInputValue(data.license_key); // Set the license key if it exists
+        setIsValueCorrect(true); // Assuming the key is correct if it's present
+      } else {
+        throw new Error('License key not found');
+      }
+    } catch (error) {
+      console.error('Error while loading the license key:', error);
+      setIsError(true);
+      setSuccessMessage(
+        error.message || 'An error occurred while loading the license key.'
+      );
+    }
+  };
+
+  // Effect to run once on component mount to load the license key
+  useEffect(() => {
+    loadLicenseKey();
+  }, []); // The empty array ensures this effect runs only once
+
+  // console.log(inputValue);
 
   return (
     <div>

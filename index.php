@@ -9,6 +9,12 @@ Description: A plugin to generate alt text for images using AI
 Author: Prolific Digital
 */
 
+require_once __DIR__ . '/vendor/autoload.php';
+
+$license_key_route = new Altly\AltTextGenerator\LicenseRoute();
+$media_details = new Altly\AltTextGenerator\MediaDetailsRoute();
+
+
 function altly_root() {
   // Add your settings content here
   echo '<div id="root"></div>';

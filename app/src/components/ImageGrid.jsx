@@ -7,11 +7,15 @@ export default function Example() {
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [averageConfidenceScore, setAverageConfidenceScore] = useState(null);
+  const [totalImages, setTotalImages] = useState(0);
+  const [imagesMissingAltText, setImagesMissingAltText] = useState(0);
+  const [userData, setUserData] = useState();
 
   /*
     Update the URL to the CMS API endpoint.
   */
-  const cmsImageApiUrl = 'https://picsum.photos/v2/list?page=99&limit=10';
+  const cmsImageApiUrl =
+    'http://plugin-tester.local/wp-json/altly/v1/get-media-details';
 
   useEffect(() => {
     const fetchData = async (pageUrl) => {
@@ -19,20 +23,20 @@ export default function Example() {
         const response = await fetch(pageUrl);
         const data = await response.json();
 
-        /*
-          
-        */
+        console.log('Data:', data);
 
         // Process the data and create new file objects
-        const newFiles = data.map((item) => ({
+        const newFiles = data.media_details.map((item) => ({
           id: item.id,
           title: `Image ${item.id}`,
-          size: `${item.width}x${item.height}`,
-          altText: 'No alt text',
+          size: `${item.metadata.width}x${item.metadata.height}`,
+          altText: item.alt_text,
           confidenceScore: 90,
-          source: item.download_url,
+          source: item.url,
         }));
         setFiles(newFiles);
+        setTotalImages(data.total_images);
+        setImagesMissingAltText(data.images_missing_alt_text);
 
         // Calculate the average confidence score
         const totalConfidenceScore = newFiles.reduce(
@@ -57,21 +61,43 @@ export default function Example() {
     fetchData(cmsImageApiUrl);
   }, []);
 
+  const valideLicenseUrl = 'http://localhost:3000/validate/license-key';
+
+  useEffect(() => {
+    const postData = async (pageUrl) => {
+      try {
+        // Create headers object with the license-key header
+        const headers = new Headers();
+        headers.append('license-key', '1f446e9e-f40f-4097-acff-bc6fec8be655'); // Replace 'YOUR_LICENSE_KEY_HERE' with the actual license key
+
+        // Make the fetch request with the headers and POST method
+        const response = await fetch(pageUrl, {
+          method: 'POST',
+          headers: headers,
+        });
+
+        // Check if the response status is OK (200)
+        if (response.ok) {
+          const responseData = await response.json();
+          setUserData(responseData.data);
+        } else {
+          console.error('Error:', response.status, response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    };
+
+    postData(valideLicenseUrl);
+  }, []);
+
   return (
     <div>
-      {/*
-        Stat data should be supplied by both the Altly API and CMS API.
-
-        totalImages: CMS API - Total number of images in the CMS
-        missingAltText: CMS API - Total number of images missing alt text
-        score:  Altly API - Average confidence score of all images in the CMS
-        credits: Altly API - Number of credits remaining in the Altly account
-      */}
       <Stats
-        totalImages='999'
-        missingAltText='999'
+        totalImages={totalImages}
+        missingAltText={imagesMissingAltText}
         score={averageConfidenceScore}
-        credits='1000'
+        credits={userData ? userData.credits : 0}
       />
       {isLoading ? (
         <ImageGridLoader />
@@ -102,7 +128,7 @@ export default function Example() {
                   {file.confidenceScore}
                 </p>
                 <p className='pointer-events-none block truncate text-sm font-medium text-gray-900'>
-                  {file.altText}
+                  {file.altText ? file.altText : 'Missing Alt Text'}
                 </p>
                 <p className='pointer-events-none block truncate text-sm font-medium text-gray-900'>
                   {file.title}
