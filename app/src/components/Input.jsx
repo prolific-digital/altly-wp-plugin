@@ -14,6 +14,7 @@ export default function Input({
   isError,
   isValueCorrect,
   successMessage,
+  disabled,
 }) {
   const isEmpty = value.trim() === '';
 
@@ -29,6 +30,7 @@ export default function Input({
         <input
           type={type}
           name={name}
+          disabled={disabled}
           id={name}
           className={`block w-full rounded-md border-0 py-1.5 pr-10 ${
             isEmpty

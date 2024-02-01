@@ -15,7 +15,7 @@ export default function Example() {
     Update the URL to the CMS API endpoint.
   */
   const cmsImageApiUrl =
-    'http://plugin-tester.local/wp-json/altly/v1/get-media-details';
+    'http://altly-plugin-dev.local/wp-json/altly/v1/get-media-details';
 
   useEffect(() => {
     const fetchData = async (pageUrl) => {
@@ -61,14 +61,15 @@ export default function Example() {
     fetchData(cmsImageApiUrl);
   }, []);
 
-  const valideLicenseUrl = 'http://localhost:3000/validate/license-key';
+  // const validateLicenseUrl = 'http://localhost:3000/validate/license-key';
+  const validateLicenseUrl = 'http://altly-plugin-dev.local/wp-json/altly/v1/license-key';
 
   useEffect(() => {
     const postData = async (pageUrl) => {
       try {
         // Create headers object with the license-key header
         const headers = new Headers();
-        headers.append('license-key', '1f446e9e-f40f-4097-acff-bc6fec8be655'); // Replace 'YOUR_LICENSE_KEY_HERE' with the actual license key
+        // headers.append('license-key', '93b4fecf-f712-475c-b011-fd9d94a82b91'); // Replace 'YOUR_LICENSE_KEY_HERE' with the actual license key
 
         // Make the fetch request with the headers and POST method
         const response = await fetch(pageUrl, {
@@ -88,7 +89,7 @@ export default function Example() {
       }
     };
 
-    postData(valideLicenseUrl);
+    postData(validateLicenseUrl);
   }, []);
 
   return (
