@@ -62,34 +62,32 @@ export default function Example() {
   }, []);
 
   // const validateLicenseUrl = 'http://localhost:3000/validate/license-key';
-  const validateLicenseUrl = 'http://altly-plugin-dev.local/wp-json/altly/v1/license-key';
 
   useEffect(() => {
-    const postData = async (pageUrl) => {
+    const getUserCredits = async () => {
+      const url = 'http://altly-plugin-dev.local/wp-json/altly/v1/get-user-credits';
       try {
-        // Create headers object with the license-key header
-        const headers = new Headers();
-        // headers.append('license-key', '93b4fecf-f712-475c-b011-fd9d94a82b91'); // Replace 'YOUR_LICENSE_KEY_HERE' with the actual license key
+        const response = await fetch(url);
 
-        // Make the fetch request with the headers and POST method
-        const response = await fetch(pageUrl, {
-          method: 'POST',
-          headers: headers,
-        });
-
-        // Check if the response status is OK (200)
-        if (response.ok) {
-          const responseData = await response.json();
-          setUserData(responseData.data);
-        } else {
-          console.error('Error:', response.status, response.statusText);
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status} ${response.statusText}`);
         }
+
+        const data = await response.json();
+
+        // Assuming the data structure doesn't change and "0" is always present
+        if (data && data["0"] && data["0"].credits !== undefined) {
+          setUserData({ credits: data["0"].credits });
+        }
+
+        // console.log(data);
+
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching user credits:', error);
       }
     };
 
-    postData(validateLicenseUrl);
+    getUserCredits();
   }, []);
 
   return (
