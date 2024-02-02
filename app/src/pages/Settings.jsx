@@ -46,7 +46,7 @@ export default function Example() {
       if (response.ok) {
         setIsValueCorrect(true);
         setSuccessMessage(data.message);
-        loadLicenseKey();
+        // loadLicenseKey();
         // console.log(data.message);
       } else {
         setIsValueCorrect(false);
