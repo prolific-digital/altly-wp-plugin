@@ -5,6 +5,7 @@ namespace Altly\AltTextGenerator;
 class MediaDetailsRoute {
   public function __construct() {
     add_action('rest_api_init', array($this, 'register_get_media_details'));
+    add_action('rest_api_init', array($this, 'register_bulk_generate'));
   }
 
   public function register_get_media_details() {
@@ -12,6 +13,14 @@ class MediaDetailsRoute {
       'methods' => 'GET',
       'callback' => array($this, 'handle_get_media_details'),
       // 'permission_callback' => array($this, 'check_permission'), // Custom permission callback
+      'permission_callback' => '__return_true', // Custom permission callback
+    ));
+  }
+
+  public function register_bulk_generate() {
+    register_rest_route('altly/v1', '/bulk-generate', array(
+      'methods' => 'POST',
+      'callback' => array($this, 'handle_bulk_generate'),
       'permission_callback' => '__return_true', // Custom permission callback
     ));
   }
@@ -49,6 +58,8 @@ class MediaDetailsRoute {
         // Get the alt text
         $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
 
+        // error_log('API Data: ' . print_r($image_url, true));
+
         // Check if alt text is missing
         if (empty($alt_text)) {
           $images_missing_alt_text++;
@@ -81,4 +92,90 @@ class MediaDetailsRoute {
 
     return rest_ensure_response($response_data);
   }
+
+  public function handle_bulk_generate($request) {
+    $method = $request->get_method();
+
+    if ('POST' === $method) {
+      $image_data = $request->get_param('image_data');
+      $license_key = get_option('_altly_license_key');
+
+      // get the amount of credits the current user have
+      $rData = $this->fetchUserCredits();
+      $creditsAvailable = $rData['credits'];
+
+      foreach($image_data as $item) {
+        // error_log('API Data: ' . print_r($item['url'], true));
+        if ($creditsAvailable > 0) {
+          // generate alt text
+          $apiUrl = 'http://localhost:3000/api/image/analyze';
+          $headers = ['Content-Type' => 'application/json'];
+          $body = json_encode([
+            'licenseKey' => $license_key,
+            'image' => $item['url']
+          ]);
+      
+          return wp_remote_post($apiUrl, [
+            'headers' => $headers,
+            'body'    => $body,
+          ]);
+
+          $api_status = wp_remote_retrieve_response_code($api_response);
+          $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+      
+          if ($api_status == 200 && isset($api_data['key']) && !empty($api_data['key'])) {
+            return new \WP_REST_Response(['message' => 'Alt text generated'] + $api_data, 200);
+          }
+        }
+      }
+  
+      // error_log('API Data: ' . print_r($creditsAvailable, true));
+
+
+
+    }
+  }
+
+  protected function callExternalApi($image_data) {
+    $apiUrl = 'http://localhost:3000/api/image/analyze';
+    $headers = ['Content-Type' => 'application/json'];
+    $body = json_encode(['key' => $image_data]);
+
+    return wp_remote_post($apiUrl, [
+      'headers' => $headers,
+      'body'    => $body,
+    ]);
+  }
+
+  protected function fetchUserCredits() {
+    $user_id = get_option('_altly_license_key_user_id');
+    if (!$user_id) {
+      return new \WP_REST_Response(['error' => 'User ID not found.'], 400); // Bad Request
+    }
+
+    $api_response = $this->callUserCreditsApi($user_id);
+    
+    if (is_wp_error($api_response)) {
+      return new \WP_REST_Response(['error' => $api_response->get_error_message()], 500); // Internal Server Error
+    }
+
+    $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+    $api_status = wp_remote_retrieve_response_code($api_response);
+
+    // Return the user credits for validation
+    return $api_data;
+  }
+
+  protected function callUserCreditsApi($user_id) {
+    $apiUrl = 'http://localhost:3000/api/validate/user';
+    $headers = ['Content-Type' => 'application/json'];
+    $body = json_encode(['id' => $user_id]);
+
+    return wp_remote_post($apiUrl, [
+        'headers' => $headers,
+        'body'    => $body,
+    ]);
+  }
+
+
 }
