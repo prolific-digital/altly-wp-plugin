@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
 
-export default function Example() {
+export default function HeadingDashboard({ data }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  // console.log(data);
 
   // Use useEffect to watch for changes in isGenerating and isScanning
   useEffect(() => {
@@ -19,7 +21,7 @@ export default function Example() {
     }
   }, [isGenerating, isScanning]);
 
-  const handleBulkGenerateClick = () => {
+  const handleBulkGenerateClick = async () => {
     if (!isGenerating) {
       setIsGenerating(true);
       setProgress(0); // Reset progress when Bulk Generate is clicked
@@ -37,6 +39,42 @@ export default function Example() {
           return newProgress;
         });
       }, timeInterval);
+    }
+
+    try {
+      // Make a POST request to the API endpoint
+      const response = await fetch(
+        'http://altly-plugin-dev.local/wp-json/altly/v1/bulk-generate',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ image_data: data }), // Send the license key as JSON
+        }
+      );
+
+      // const data = await response.json();
+
+      console.log(data);
+
+      // if (response.ok) {
+      //   setIsValueCorrect(true);
+      //   setSuccessMessage(data.message);
+      //   // loadLicenseKey();
+      //   // console.log(data.message);
+      // } else {
+      //   setIsValueCorrect(false);
+      //   setIsError(true);
+      //   setSuccessMessage(data.message); // Display the error message from the server
+
+      //   // console.log(data.message);
+      // }
+    } catch (error) {
+      // console.error('Error while making API call:', error);
+      // setIsValueCorrect(false);
+      // setIsError(true);
+      // setSuccessMessage('An error occurred while validating the license key.');
     }
   };
 

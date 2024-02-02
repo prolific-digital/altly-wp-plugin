@@ -3,13 +3,25 @@ import ImageGridLoader from '../components/ImageGridLoader';
 import Stats from '../components/Stats';
 import Pagination from '../components/Pagination';
 
-export default function Example() {
+export default function ImageGrid({ onDataChange }) {
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [averageConfidenceScore, setAverageConfidenceScore] = useState(null);
   const [totalImages, setTotalImages] = useState(0);
+  const [totalCreditsRemaining, setTotalCreditsRemaining] = useState(0);
   const [imagesMissingAltText, setImagesMissingAltText] = useState(0);
-  const [userData, setUserData] = useState();
+  const [altImageData, setAltImageData] = useState();
+
+  const updateData = () => {
+    // const newData = ...; // Obtain or generate new data
+    onDataChange(altImageData); // Update the parent component's state
+  };
+
+  useEffect(() => {
+    if (altImageData) {
+      updateData();
+    }
+  }, [altImageData]);
 
   /*
     Update the URL to the CMS API endpoint.
@@ -23,7 +35,8 @@ export default function Example() {
         const response = await fetch(pageUrl);
         const data = await response.json();
 
-        console.log('Data:', data);
+        console.log('Data:', data.media_details);
+        setAltImageData(data.media_details);
 
         // Process the data and create new file objects
         const newFiles = data.media_details.map((item) => ({
@@ -77,7 +90,8 @@ export default function Example() {
 
         // Assuming the data structure doesn't change and "0" is always present
         if (data && data.credits !== undefined) {
-          setUserData({ credits: data.credits });
+          // setUserData({ credits: data.credits });
+          setTotalCreditsRemaining(data.credits);
         }
 
         // console.log(data);
@@ -96,7 +110,7 @@ export default function Example() {
         totalImages={totalImages}
         missingAltText={imagesMissingAltText}
         score={averageConfidenceScore}
-        credits={userData ? userData.credits : 0}
+        credits={totalCreditsRemaining}
       />
       {isLoading ? (
         <ImageGridLoader />
