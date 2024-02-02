@@ -76,8 +76,8 @@ export default function Example() {
         const data = await response.json();
 
         // Assuming the data structure doesn't change and "0" is always present
-        if (data && data["0"] && data["0"].credits !== undefined) {
-          setUserData({ credits: data["0"].credits });
+        if (data && data.credits !== undefined) {
+          setUserData({ credits: data.credits });
         }
 
         // console.log(data);
