@@ -13,6 +13,7 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 $license_key_route = new Altly\AltTextGenerator\LicenseRoute();
 $media_details = new Altly\AltTextGenerator\MediaDetailsRoute();
+$user_route = new Altly\AltTextGenerator\UserRoute();
 
 
 function altly_root() {
