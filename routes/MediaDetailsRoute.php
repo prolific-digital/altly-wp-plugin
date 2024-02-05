@@ -105,27 +105,34 @@ class MediaDetailsRoute {
       $creditsAvailable = $rData['credits'];
 
       foreach($image_data as $item) {
-        // error_log('API Data: ' . print_r($item['url'], true));
         if ($creditsAvailable > 0) {
+          error_log('API Data: ' . print_r('true', true));
           // generate alt text
           $apiUrl = 'http://localhost:3000/api/image/analyze';
+          
           $headers = ['Content-Type' => 'application/json'];
           $body = json_encode([
             'licenseKey' => $license_key,
             'image' => $item['url']
           ]);
       
-          return wp_remote_post($apiUrl, [
+          $api_response = wp_remote_post($apiUrl, [
             'headers' => $headers,
             'body'    => $body,
           ]);
 
-          $api_status = wp_remote_retrieve_response_code($api_response);
-          $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
-      
-          if ($api_status == 200 && isset($api_data['key']) && !empty($api_data['key'])) {
-            return new \WP_REST_Response(['message' => 'Alt text generated'] + $api_data, 200);
+          if (is_wp_error($api_response)) {
+            $response['error'] = $api_response->get_error_message();
+            error_log('API Error Response: ' . print_r($response['error'], true));
+          } else {
+            $api_status = wp_remote_retrieve_response_code($api_response);
+            $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+        
+            if ($api_status == 200 && isset($api_data['key']) && !empty($api_data['key'])) {
+              return new \WP_REST_Response(['message' => 'Alt text generated'] + $api_data, 200);
+            }
           }
+
         }
       }
   

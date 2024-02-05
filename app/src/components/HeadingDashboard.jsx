@@ -54,9 +54,9 @@ export default function HeadingDashboard({ data }) {
         }
       );
 
-      // const data = await response.json();
+      const res = await response.json();
 
-      console.log(data);
+      console.log(res);
 
       // if (response.ok) {
       //   setIsValueCorrect(true);

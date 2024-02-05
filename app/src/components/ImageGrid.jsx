@@ -87,8 +87,7 @@ export default function ImageGrid({ onDataChange }) {
         }
 
         const data = await response.json();
-
-        // Assuming the data structure doesn't change and "0" is always present
+        
         if (data && data.credits !== undefined) {
           // setUserData({ credits: data.credits });
           setTotalCreditsRemaining(data.credits);
