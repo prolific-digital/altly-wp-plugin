@@ -44,7 +44,7 @@ export default function HeadingDashboard({ data }) {
     try {
       // Make a POST request to the API endpoint
       const response = await fetch(
-        'http://altly-plugin-dev.local/wp-json/altly/v1/bulk-generate',
+        'https://altlyplugin.prolificdigital.io/wp-json/altly/v1/bulk-generate',
         {
           method: 'POST',
           headers: {

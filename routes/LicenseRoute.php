@@ -69,7 +69,7 @@ class LicenseRoute {
   }
 
   protected function callExternalApi($license_key) {
-    $apiUrl = 'http://localhost:3000/api/validate/key';
+    $apiUrl = 'https://api.altly.io/api/validate/key';
     $headers = ['Content-Type' => 'application/json'];
     $body = json_encode(['key' => $license_key]);
 

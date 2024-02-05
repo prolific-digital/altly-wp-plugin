@@ -147,7 +147,7 @@ class MediaDetailsRoute {
   }
 
   protected function callExternalApi($image_data) {
-    $apiUrl = 'http://localhost:3000/api/image/analyze';
+    $apiUrl = 'https://api.altly.io/api/image/analyze';
     $headers = ['Content-Type' => 'application/json'];
     $body = json_encode(['key' => $image_data]);
 
@@ -177,7 +177,7 @@ class MediaDetailsRoute {
   }
 
   protected function callUserCreditsApi($user_id) {
-    $apiUrl = 'http://localhost:3000/api/validate/user';
+    $apiUrl = 'https://api.altly.io/api/validate/user';
     $headers = ['Content-Type' => 'application/json'];
     $body = json_encode(['id' => $user_id]);
 

@@ -29,7 +29,7 @@ export default function Example() {
     try {
       // Make a POST request to the API endpoint
       const response = await fetch(
-        'http://altly-plugin-dev.local/wp-json/altly/v1/license-key',
+        'https://altlyplugin.prolificdigital.io/wp-json/altly/v1/license-key',
         {
           method: 'POST',
           headers: {
@@ -77,7 +77,7 @@ export default function Example() {
   const loadLicenseKey = async () => {
     try {
       const response = await fetch(
-        'http://altly-plugin-dev.local/wp-json/altly/v1/license-key'
+        'https://altlyplugin.prolificdigital.io/wp-json/altly/v1/license-key'
       );
       const data = await response.json();
 
