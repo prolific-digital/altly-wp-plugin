@@ -106,20 +106,23 @@ class MediaDetailsRoute {
 
       foreach($image_data as $item) {
         if ($creditsAvailable > 0) {
-          error_log('API Data: ' . print_r('true', true));
+          error_log('API Data: ' . print_r($license_key, true));
           // generate alt text
-          $apiUrl = 'http://localhost:3000/api/image/analyze';
+          $apiUrl = 'https://api.altly.io/analyze/image';
           
-          $headers = ['Content-Type' => 'application/json'];
+          $headers = ['Content-Type' => 'application/json',
+          'license-key' => $license_key];
+
           $body = json_encode([
-            'licenseKey' => $license_key,
-            'image' => $item['url']
+            'imageUrl' => $item['url']
           ]);
       
           $api_response = wp_remote_post($apiUrl, [
             'headers' => $headers,
             'body'    => $body,
           ]);
+
+          error_log('API Data: ' . print_r($api_response, true));
 
           if (is_wp_error($api_response)) {
             $response['error'] = $api_response->get_error_message();

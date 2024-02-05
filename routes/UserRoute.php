@@ -31,7 +31,9 @@ class UserRoute {
     }
 
     $api_response = $this->callUserCreditsApi($user_id);
-    
+
+    // error_log('API Response: ' . print_r($api_response, true));
+
     if (is_wp_error($api_response)) {
       return new \WP_REST_Response(['error' => $api_response->get_error_message()], 500); // Internal Server Error
     }
