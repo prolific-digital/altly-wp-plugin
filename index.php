@@ -32,7 +32,7 @@ function enqueue_ai_alt_text_script() {
       'altly', // Unique handle
       plugin_dir_url(__FILE__) . '/app/dist/assets/index.js', // Source URL
       array(), // Dependencies (if any)
-      '5', // Version
+      '6', // Version
       true // Load script in the footer
     );
 
@@ -41,7 +41,7 @@ function enqueue_ai_alt_text_script() {
       'altly', // Unique handle
       plugin_dir_url(__FILE__) . '/app/dist/assets/index.css', // Source URL
       array(), // Dependencies (if any)
-      '5' // Version
+      '6' // Version
     );
   }
 }

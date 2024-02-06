@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import ImageGridLoader from '../components/ImageGridLoader';
 import Stats from '../components/Stats';
 import Pagination from '../components/Pagination';
+import StatsLoader from '../components/StatsLoader';
 
 export default function ImageGrid({ onDataChange }) {
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [statsLoading, setstatsLoading] = useState(true);
   const [averageConfidenceScore, setAverageConfidenceScore] = useState(null);
   const [totalImages, setTotalImages] = useState(0);
   const [totalCreditsRemaining, setTotalCreditsRemaining] = useState(0);
@@ -104,6 +106,7 @@ export default function ImageGrid({ onDataChange }) {
         if (data && data.credits !== undefined) {
           // setUserData({ credits: data.credits });
           setTotalCreditsRemaining(data.credits);
+          setstatsLoading(false);
         }
 
         // console.log(data);
@@ -118,12 +121,13 @@ export default function ImageGrid({ onDataChange }) {
 
   return (
     <div>
+      {statsLoading ? <StatsLoader /> : 
       <Stats
         totalImages={totalImages}
         missingAltText={imagesMissingAltText}
         score={averageConfidenceScore}
         credits={totalCreditsRemaining}
-      />
+      />}
       {isLoading ? (
         <ImageGridLoader />
       ) : (
