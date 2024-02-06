@@ -13,7 +13,6 @@ export default function ImageGrid({ onDataChange }) {
   const [altImageData, setAltImageData] = useState();
 
   const updateData = () => {
-    // const newData = ...; // Obtain or generate new data
     onDataChange(altImageData); // Update the parent component's state
   };
 
@@ -46,8 +45,8 @@ export default function ImageGrid({ onDataChange }) {
           url: item.url
         }));
 
-        console.log('All Data:', data.media_details);
-        console.log('Missing Alt Text:', itemsWithMissingAltText);
+        // console.log('All Data:', data.media_details);
+        // console.log('Missing Alt Text:', itemsWithMissingAltText);
         setAltImageData(itemsWithMissingAltText);
 
         // Process the data and create new file objects

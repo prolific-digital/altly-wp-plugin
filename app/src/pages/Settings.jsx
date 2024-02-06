@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Heading from '../components/Heading';
 import Input from '../components/Input';
 import Form from '../components/Form';
+import InputLoader from '../components/InputLoader';
 
 export default function Example() {
   // State to track the input value
@@ -12,6 +13,9 @@ export default function Example() {
 
   // State to track whether there's an error
   const [isError, setIsError] = useState(false);
+  
+  // Track load state
+  const [isLoading, setIsLoading] = useState(true);
 
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -44,7 +48,7 @@ export default function Example() {
       // console.log(data);
 
       if (response.ok) {
-        setIsValueCorrect(true);
+        setIsValueCorrect(false);
         setSuccessMessage(data.message);
         // loadLicenseKey();
         // console.log(data.message);
@@ -70,8 +74,6 @@ export default function Example() {
   };
 
   // Function to load the license key from the API
-  // Consideration: If the user has successfully entered a valid key and that key is saved to wordpress options,
-  // would it not be right to load the valid key from wordpress options instead?
   
 
   const loadLicenseKey = async () => {
@@ -81,19 +83,18 @@ export default function Example() {
       );
       const data = await response.json();
 
-      // console.log(response);
-      // console.log(data);
-
       if (response.ok && data.license_key) {
         setInputValue(data.license_key); // Set the license key if it exists
-        // console.log(inputValue);
         setIsValueCorrect(true); // Assuming the key is correct if it's present
+        setIsLoading(false);
       } else {
+        setIsLoading(false);
         throw new Error('License key not found');
       }
     } catch (error) {
       console.error('Error while loading the license key:', error);
       setIsError(true);
+      setIsLoading(false);
       setSuccessMessage(
         error.message || 'An error occurred while loading the license key.'
       );
@@ -103,13 +104,14 @@ export default function Example() {
   // Effect to run once on component mount to load the license key
   useEffect(() => {
     loadLicenseKey();
-    // setInputValue('hardcoded-test-value'); 
   }, []); // The empty array ensures this effect runs only once
 
   return (
     <div>
       <Heading text='Settings' />
-      {inputValue.length > 0 ? (
+      {isLoading ? (
+        <InputLoader /> // Show a loading indicator or message
+      ) : inputValue.length > 0 ? (
         <Input
           label='License Key'
           type='text'

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.scss';
 import AppShell from './components/AppShell';
 import Route from './components/Route';
@@ -6,6 +6,16 @@ import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 
 function App() {
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const page = searchParams.get('page');
+    const screen = searchParams.get('screen');
+
+    if (page === 'altly' && !screen) {
+      window.location.search = searchParams.toString() + '&screen=dashboard';
+    }
+  }, []);
+  
   return (
     <>
       <AppShell>

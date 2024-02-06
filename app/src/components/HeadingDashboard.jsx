@@ -6,8 +6,6 @@ export default function HeadingDashboard({ data }) {
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  // console.log(data);
-
   // Use useEffect to watch for changes in isGenerating and isScanning
   useEffect(() => {
     if (isGenerating || isScanning) {
@@ -58,21 +56,14 @@ export default function HeadingDashboard({ data }) {
 
       console.log(res);
 
-      // if (response.ok) {
-      //   setIsValueCorrect(true);
-      //   setSuccessMessage(data.message);
-      //   // loadLicenseKey();
-      //   // console.log(data.message);
-      // } else {
-      //   setIsValueCorrect(false);
-      //   setIsError(true);
-      //   setSuccessMessage(data.message); // Display the error message from the server
-
-      //   // console.log(data.message);
-      // }
+      if (response.ok) {
+        // Reload state
+        // setIsError(false);
+      } else {
+        // setIsError(true);
+      }
     } catch (error) {
-      // console.error('Error while making API call:', error);
-      // setIsValueCorrect(false);
+      console.error('Error while making API call:', error);
       // setIsError(true);
       // setSuccessMessage('An error occurred while validating the license key.');
     }
@@ -119,7 +110,7 @@ export default function HeadingDashboard({ data }) {
             id='scanImagesBtn'
             onClick={handleScanImagesClick}
             disabled={isScanning || isGenerating} // Disable if progress is ongoing
-            className='inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50'
+            className='inline-flex hidden items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50'
           >
             {isScanning ? 'Scanning...' : 'Scan Images'}
           </button>
