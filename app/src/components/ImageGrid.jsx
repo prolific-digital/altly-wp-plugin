@@ -28,7 +28,7 @@ export default function ImageGrid({ onDataChange }) {
     Update the URL to the CMS API endpoint.
   */
   const cmsImageApiUrl =
-    'https://staging.elegance-living.com//wp-json/altly/v1/get-media-details';
+    'https://staging.elegance-living.com/wp-json/altly/v1/get-media-details';
 
   useEffect(() => {
     const fetchData = async (pageUrl) => {
@@ -93,7 +93,7 @@ export default function ImageGrid({ onDataChange }) {
 
   useEffect(() => {
     const getUserCredits = async () => {
-      const url = 'https://staging.elegance-living.com//wp-json/altly/v1/get-user-credits';
+      const url = 'https://staging.elegance-living.com/wp-json/altly/v1/get-user-credits';
       try {
         const response = await fetch(url);
 
