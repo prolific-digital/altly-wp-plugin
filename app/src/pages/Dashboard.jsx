@@ -7,9 +7,8 @@ export default function Dashboard() {
 
   // Function to update the state, which will be passed to ImageGrid
   const handleDataChange = newData => {
-    console.log(newData)
+    console.log('From Dashboard' + newData)
     setImageData(newData);
-    console.log(imageData)
   };
 
   return (

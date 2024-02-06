@@ -35,8 +35,20 @@ export default function ImageGrid({ onDataChange }) {
         const response = await fetch(pageUrl);
         const data = await response.json();
 
-        console.log('Data:', data.media_details);
-        setAltImageData(data.media_details);
+        const itemsWithMissingAltText = data.media_details
+        .filter(item => !item.alt_text || item.alt_text.trim() === '') // Filter items with missing or empty alt_text
+        .map(item => ({
+          // Map each filtered item to a new object structure
+          alt_text: item.alt_text,
+          file_path: item.file_path,
+          id: item.id,
+          metadata: item.metadata,
+          url: item.url
+        }));
+
+        console.log('All Data:', data.media_details);
+        console.log('Missing Alt Text:', itemsWithMissingAltText);
+        setAltImageData(itemsWithMissingAltText);
 
         // Process the data and create new file objects
         const newFiles = data.media_details.map((item) => ({
@@ -47,6 +59,8 @@ export default function ImageGrid({ onDataChange }) {
           confidenceScore: 90,
           source: item.url,
         }));
+
+
         setFiles(newFiles);
         setTotalImages(data.total_images);
         setImagesMissingAltText(data.images_missing_alt_text);
@@ -161,3 +175,7 @@ export default function ImageGrid({ onDataChange }) {
     </div>
   );
 }
+
+
+
+
