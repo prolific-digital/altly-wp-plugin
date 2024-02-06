@@ -98,49 +98,120 @@ class MediaDetailsRoute {
 
     if ('POST' === $method) {
       $image_data = $request->get_param('image_data');
-      $license_key = get_option('_altly_license_key');
 
-      // get the amount of credits the current user have
-      $rData = $this->fetchUserCredits();
-      $creditsAvailable = $rData['credits'];
+      if (!empty($image_data)) {
+        $license_key = get_option('_altly_license_key');
 
-      foreach($image_data as $item) {
-        if ($creditsAvailable > 0) {
-          error_log('API Data: ' . print_r($license_key, true));
-          // generate alt text
-          $apiUrl = 'https://api.altly.io/analyze/image';
-          
-          $headers = ['Content-Type' => 'application/json',
-          'license-key' => $license_key];
-
-          $body = json_encode([
-            'imageUrl' => $item['url']
-          ]);
-      
-          $api_response = wp_remote_post($apiUrl, [
-            'headers' => $headers,
-            'body'    => $body,
-          ]);
-
-          error_log('API Data: ' . print_r($api_response, true));
-
-          if (is_wp_error($api_response)) {
-            $response['error'] = $api_response->get_error_message();
-            error_log('API Error Response: ' . print_r($response['error'], true));
-          } else {
-            $api_status = wp_remote_retrieve_response_code($api_response);
-            $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+        // get the amount of credits the current user have
+        $rData = $this->fetchUserCredits();
+        $creditsAvailable = $rData['credits'];
+  
+        // Use array_slice to get the first 2 items from $image_data
+        $limited_image_data = array_slice($image_data, 0, 2);
+  
+        // Initialize an array to hold the results
+        $results = [];
+        $analyzeSucess = true;
+  
+        foreach($limited_image_data as $item) {
+          if ($creditsAvailable > 0) {
+            // error_log('API Data: ' . print_r($license_key, true));
+            // generate alt text
+            $apiUrl = 'https://api.altly.io/analyze/image';
+            
+            $headers = ['Content-Type' => 'application/json',
+            'license-key' => $license_key];
+  
+            $body = json_encode([
+              'imageUrl' => $item['url']
+            ]);
         
-            if ($api_status == 200 && isset($api_data['key']) && !empty($api_data['key'])) {
-              return new \WP_REST_Response(['message' => 'Alt text generated'] + $api_data, 200);
+            $api_response = wp_remote_post($apiUrl, [
+              'headers' => $headers,
+              'body'    => $body,
+            ]);
+  
+            // error_log('API Data: ' . print_r($api_response, true));
+  
+            if (is_wp_error($api_response)) {
+              $response['error'] = $api_response->get_error_message();
+              error_log('API Error Response: ' . print_r($response['error'], true));
+              $results[] = ['url' => $item['url'], 'error' => $error_message];
+            } else {
+              $api_status = wp_remote_retrieve_response_code($api_response);
+              $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+          
+              if ($api_status == 200) {
+                $results[] = ['url' => $item['url'], 'altText' => $api_data['altText']];
+                $analyzeSucess = true;
+                // return new \WP_REST_Response(['message' => 'Alt text generated'] + $api_data, 200);
+              }
             }
           }
-
+        }
+  
+        if ($analyzeSucess) {
+          // $results = []; // Initialize results array
+      
+          foreach ($image_data as $item) {
+              $user_id = get_option('_altly_license_key_user_id');
+              $apiUrlRet = 'https://api.altly.io/api/image/retrieve';
+      
+              $headers = ['Content-Type' => 'application/json'];
+      
+              $body = json_encode([
+                  'userId' => $user_id,
+                  'source' => $item['url']
+              ]);
+      
+              $api_response = wp_remote_post($apiUrlRet, [
+                  'headers' => $headers,
+                  'body'    => $body,
+              ]);
+      
+              if (is_wp_error($api_response)) {
+                  $error_message = $api_response->get_error_message();
+                  $results[] = ['url' => $item['url'], 'error' => $error_message];
+              } else {
+                  $api_status = wp_remote_retrieve_response_code($api_response);
+                  $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+      
+                  if ($api_status != 200) {
+                      $results[] = [
+                          'url' => $item['url'],
+                          'error' => "API returned status code $api_status"
+                      ];
+                  } elseif (empty($api_data)) {
+                      $results[] = [
+                          'url' => $item['url'],
+                          'error' => 'API response is empty or missing results'
+                      ];
+                  } else {
+                    $attachment_id = attachment_url_to_postid($api_data[0]['source']);
+  
+                    if ($attachment_id) {
+                        $caption = $api_data[0]['caption'];
+                        update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($caption));
+  
+                        $results[] = [
+                            'url' => $api_data[0]['source'],
+                            'caption' => $caption,
+                            'updated' => true,
+                        ];
+                    } else {
+                        $results[] = [
+                            'url' => $api_data['0']['source'],
+                            'returned_api_data' => $api_data,
+                            'error' => 'Could not find attachment ID for this image.'
+                        ];
+                    }
+                  }
+              }
+          }
+      
+          return new \WP_REST_Response(['message' => 'Processed images', 'results' => $results], 200);
         }
       }
-  
-      // error_log('API Data: ' . print_r($creditsAvailable, true));
-
 
 
     }
