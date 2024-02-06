@@ -42,7 +42,7 @@ export default function HeadingDashboard({ data }) {
     try {
       // Make a POST request to the API endpoint
       const response = await fetch(
-        'https://altlyplugin.prolificdigital.io/wp-json/altly/v1/bulk-generate',
+        'https://staging.elegance-living.com//wp-json/altly/v1/bulk-generate',
         {
           method: 'POST',
           headers: {

@@ -33,7 +33,7 @@ export default function Example() {
     try {
       // Make a POST request to the API endpoint
       const response = await fetch(
-        'https://altlyplugin.prolificdigital.io/wp-json/altly/v1/license-key',
+        'https://staging.elegance-living.com//wp-json/altly/v1/license-key',
         {
           method: 'POST',
           headers: {
@@ -73,7 +73,7 @@ export default function Example() {
   const handleLicenseRemoval = async () => {
     try {
       const response = await fetch(
-        'https://altlyplugin.prolificdigital.io/wp-json/altly/v1/remove-license-key'
+        'https://staging.elegance-living.com//wp-json/altly/v1/remove-license-key'
       );
       // const data = await response.json();
 
@@ -107,7 +107,7 @@ export default function Example() {
   const loadLicenseKey = async () => {
     try {
       const response = await fetch(
-        'https://altlyplugin.prolificdigital.io/wp-json/altly/v1/license-key'
+        'https://staging.elegance-living.com//wp-json/altly/v1/license-key'
       );
       const data = await response.json();
 
