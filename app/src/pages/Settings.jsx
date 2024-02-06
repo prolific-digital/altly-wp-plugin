@@ -45,17 +45,20 @@ export default function Example() {
 
       const data = await response.json();
 
-      // console.log(data);
+      console.log(data);
 
       if (response.ok) {
-        setIsValueCorrect(false);
+        setIsValueCorrect(true);
+        setIsError(false);
         setSuccessMessage(data.message);
-        // loadLicenseKey();
+        loadLicenseKey();
         // console.log(data.message);
       } else {
         setIsValueCorrect(false);
         setIsError(true);
         setSuccessMessage(data.message); // Display the error message from the server
+        // loadLicenseKey();
+        setInputValue('');
 
         // console.log(data.message);
       }
@@ -66,6 +69,31 @@ export default function Example() {
       setSuccessMessage('An error occurred while validating the license key.');
     }
   };
+
+  const handleLicenseRemoval = async () => {
+    try {
+      const response = await fetch(
+        'https://altlyplugin.prolificdigital.io/wp-json/altly/v1/remove-license-key'
+      );
+      // const data = await response.json();
+
+      if (response.ok) {
+        setIsLoading(false);
+        loadLicenseKey();
+      } else {
+        setIsLoading(false);
+        loadLicenseKey();
+        throw new Error('License key not found');
+      }
+    } catch (error) {
+      console.error('Error while loading the license key:', error);
+      setIsError(true);
+      setIsLoading(false);
+      setSuccessMessage(
+        error.message || 'An error occurred while loading the license key.'
+      );
+    }
+  }
 
   // Function to validate the input (replace with your validation logic)
   const validateInput = (value) => {
@@ -88,6 +116,7 @@ export default function Example() {
         setIsValueCorrect(true); // Assuming the key is correct if it's present
         setIsLoading(false);
       } else {
+        setInputValue('');
         setIsLoading(false);
         throw new Error('License key not found');
       }
@@ -110,20 +139,23 @@ export default function Example() {
     <div>
       <Heading text='Settings' />
       {isLoading ? (
-        <InputLoader /> // Show a loading indicator or message
-      ) : inputValue.length > 0 ? (
-        <Input
-          label='License Key'
-          type='text'
-          placeholder='xxx-xxx-xxx'
-          name='license-key'
-          value={inputValue} // Pass the input value
-          onChange={handleInputChange} // Pass the onChange handler
-          isError={isError}
-          isValueCorrect={isValueCorrect}
-          successMessage='License key is valid'
-          disabled={true}
-        />
+        <InputLoader /> // Show a loading indicator
+      ) : inputValue.length > 0 && isValueCorrect ? (
+        <>
+          <Input
+            label='License Key'
+            type='text'
+            placeholder='xxx-xxx-xxx'
+            name='license-key'
+            value={inputValue} // Pass the input value
+            onChange={handleInputChange} // Pass the onChange handler
+            isError={isError}
+            isValueCorrect={isValueCorrect}
+            successMessage='License key is valid'
+            disabled={true}
+          />
+          <button className='rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600' onClick={handleLicenseRemoval}>Remove License</button>
+        </>
       ) : (
         <Form onSubmit={handleSaveClick}>
           <Input
@@ -141,7 +173,7 @@ export default function Example() {
             type='submit'
             className='rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
           >
-            Save
+            Save License
           </button>
         </Form>
       )}

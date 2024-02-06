@@ -5,12 +5,21 @@ namespace Altly\AltTextGenerator;
 class LicenseRoute {
   public function __construct() {
     add_action('rest_api_init', array($this, 'register_license_key_route'));
+    add_action('rest_api_init', array($this, 'register_remove_license_key_route'));
   }
 
   public function register_license_key_route() {
     register_rest_route('altly/v1', 'license-key', array(
       'methods' => 'GET, POST', // Allow both GET and POST requests
       'callback' => array($this, 'handle_license_key'),
+      'permission_callback' => '__return_true', // Custom permission callback
+    ));
+  }
+
+  public function register_remove_license_key_route() {
+    register_rest_route('altly/v1', 'remove-license-key', array(
+      'methods' => 'GET, POST', // Allow both GET and POST requests
+      'callback' => array($this, 'handle_remove_license_key'),
       'permission_callback' => '__return_true', // Custom permission callback
     ));
   }
@@ -26,6 +35,17 @@ class LicenseRoute {
 
     // Optionally, handle other methods or return a method not allowed response
     return new \WP_REST_Response(['error' => 'Method Not Allowed'], 405);
+  }
+
+  public function handle_remove_license_key() {
+    // Delete '_altly_license_key' option
+    delete_option( '_altly_license_key' );
+
+    // Delete '_altly_license_key_user_id' option
+    delete_option( '_altly_license_key_user_id' );
+
+    return new \WP_REST_Response(['message' => 'License key removed'], 200);
+
   }
 
   protected function handleGetRequest() {

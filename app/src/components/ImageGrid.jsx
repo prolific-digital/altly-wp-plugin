@@ -107,11 +107,14 @@ export default function ImageGrid({ onDataChange }) {
           // setUserData({ credits: data.credits });
           setTotalCreditsRemaining(data.credits);
           setstatsLoading(false);
+        } else {
+          setstatsLoading(false);
         }
 
         // console.log(data);
 
       } catch (error) {
+        setstatsLoading(false);
         console.error('Error fetching user credits:', error);
       }
     };
