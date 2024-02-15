@@ -19,6 +19,12 @@ function App() {
   return (
     <>
       <AppShell>
+        <Route path='/wp/wp-admin/upload.php' params={{ screen: 'dashboard' }}>
+          <Dashboard />
+        </Route>
+        <Route path='/wp/wp-admin/upload.php' params={{ screen: 'settings' }}>
+          <Settings />
+        </Route>
         <Route path='/wp-admin/upload.php' params={{ screen: 'dashboard' }}>
           <Dashboard />
         </Route>

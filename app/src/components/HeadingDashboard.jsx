@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ProgressBar from '../components/ProgressBar';
+import getBaseUrl from '../helpers/baseUrlHelper';
 
 export default function HeadingDashboard({ data }) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -42,7 +43,7 @@ export default function HeadingDashboard({ data }) {
     try {
       // Make a POST request to the API endpoint
       const response = await fetch(
-        'https://staging.elegance-living.com/wp-json/altly/v1/bulk-generate',
+        getBaseUrl()+'/wp-json/altly/v1/bulk-generate',
         {
           method: 'POST',
           headers: {

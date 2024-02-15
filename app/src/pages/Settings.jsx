@@ -3,6 +3,7 @@ import Heading from '../components/Heading';
 import Input from '../components/Input';
 import Form from '../components/Form';
 import InputLoader from '../components/InputLoader';
+import getBaseUrl from '../helpers/baseUrlHelper';
 
 export default function Example() {
   // State to track the input value
@@ -33,7 +34,7 @@ export default function Example() {
     try {
       // Make a POST request to the API endpoint
       const response = await fetch(
-        'https://staging.elegance-living.com/wp-json/altly/v1/license-key',
+        getBaseUrl()+'/wp-json/altly/v1/license-key',
         {
           method: 'POST',
           headers: {
@@ -73,7 +74,7 @@ export default function Example() {
   const handleLicenseRemoval = async () => {
     try {
       const response = await fetch(
-        'https://staging.elegance-living.com/wp-json/altly/v1/remove-license-key'
+        getBaseUrl()+'/wp-json/altly/v1/remove-license-key'
       );
       // const data = await response.json();
 
@@ -107,7 +108,7 @@ export default function Example() {
   const loadLicenseKey = async () => {
     try {
       const response = await fetch(
-        'https://staging.elegance-living.com/wp-json/altly/v1/license-key'
+        getBaseUrl()+'/wp-json/altly/v1/license-key'
       );
       const data = await response.json();
 
