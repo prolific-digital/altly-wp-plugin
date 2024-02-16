@@ -6,6 +6,7 @@ class MediaDetailsRoute {
   public function __construct() {
     add_action('rest_api_init', array($this, 'register_get_media_details'));
     add_action('rest_api_init', array($this, 'register_bulk_generate'));
+    add_action('rest_api_init', array($this, 'register_single_image_upload'));
   }
 
   public function register_get_media_details() {
@@ -25,10 +26,80 @@ class MediaDetailsRoute {
     ));
   }
 
+  // New method for registering the image upload route
+  public function register_single_image_upload() {
+    register_rest_route('altly/v1', '/handle-single-image-upload', array(
+      'methods' => 'POST',
+      'callback' => array($this, 'handle_single_image_upload'),
+      'permission_callback' => '__return_true', // Custom permission callback
+    ));
+  }
+
   public function check_permission() {
     // Check if the user is logged in and has the necessary capabilities
     return is_user_logged_in() && current_user_can('manage_options'); // Adjust the capability as needed
   }
+
+  public function handle_single_image_upload($request) {
+    // Retrieve the latest uploaded image URL
+    // $image_url = get_transient( 'latest_uploaded_image_url' );
+
+    $image_url = $request->get_param('image_url');
+
+    if ( ! $image_url ) {
+        return new WP_Error( 'no_recent_upload', 'No recent image upload detected.', array( 'status' => 404 ) );
+    }
+
+    $license_key = get_option('_altly_license_key');
+
+    // get the amount of credits the current user have
+    $rData = $this->fetchUserCredits();
+    $creditsAvailable = $rData['credits'];
+
+    if ($creditsAvailable > 0) {
+      // error_log('API Data: ' . print_r($license_key, true));
+      // generate alt text
+      $apiUrl = 'https://api.altly.io/analyze/image';
+      
+      $headers = ['Content-Type' => 'application/json',
+      'license-key' => $license_key];
+
+      $body = json_encode([
+        'imageUrl' => $image_url
+      ]);
+  
+      $api_response = wp_remote_post($apiUrl, [
+        'headers' => $headers,
+        'body'    => $body,
+      ]);
+
+      // error_log('API Data: ' . print_r($api_response, true));
+
+      if (is_wp_error($api_response)) {
+        $response['error'] = $api_response->get_error_message();
+        error_log('API Error Response: ' . print_r($response['error'], true));
+        return new \WP_REST_Response(['error' => $api_response->get_error_message()], 500);
+      } 
+      
+      $api_status = wp_remote_retrieve_response_code($api_response);
+      $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+    
+      if ($api_status == 200) {
+        return new \WP_REST_Response(['message' => 'Alt Text Generated'] + $api_data, 200);
+      }
+
+      return new \WP_REST_Response($api_data ?: ['error' => 'Invalid API response'], $api_status ?: 500);
+    } else {
+      return new \WP_REST_Response($api_data ?: ['error' => 'No Credits Available'], $api_status ?: 500);
+    }
+
+    // error_log('Image Url on handle_single_image_upload: ' . print_r($image_url, true));
+
+    // Proceed with your logic, using $image_url as needed
+    // For example, return the image URL in the REST API response
+    // return new WP_REST_Response( array( 'image_url' => $image_url ), 200 );
+  }
+
 
   public function handle_get_media_details($request) {
     // Validate the request, retrieve data, and perform alt text generation
@@ -144,14 +215,12 @@ class MediaDetailsRoute {
               if ($api_status == 200) {
                 $results[] = ['url' => $item['url'], 'altText' => $api_data['altText']];
                 $analyzeSucess = true;
-                // return new \WP_REST_Response(['message' => 'Alt text generated'] + $api_data, 200);
               }
             }
           }
         }
   
         if ($analyzeSucess) {
-          // $results = []; // Initialize results array
       
           foreach ($image_data as $item) {
               $user_id = get_option('_altly_license_key_user_id');

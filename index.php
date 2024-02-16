@@ -136,3 +136,36 @@ function add_script() {
 
 add_action('admin_head', 'enqueue_hmr_client');
 add_action('admin_footer', 'add_script');
+
+
+function detect_uploaded_image_and_store_url( $attachment_id ) {
+  $image_url = wp_get_attachment_url( $attachment_id );
+
+  // Store the image URL in a transient or option
+  // set_transient( 'latest_uploaded_image_url', $image_url, 60 * 60 ); // Expire after 1 hour for example
+
+  // URL to your REST API endpoint
+  $api_url = site_url() . '/wp-json/altly/v1/handle-single-image-upload';
+
+  // error_log('site Url: ' . print_r($api_url, true));
+  // error_log('Image Url: ' . print_r($image_url, true));
+
+  // Make a POST request to your REST API endpoint
+  $response = wp_remote_post( $api_url, array(
+      'body' => array( 'image_url' => $image_url ),
+      'headers' => array(
+          'Content-Type' => 'application/x-www-form-urlencoded',
+      ),
+  ));
+
+  // error_log('Response: ' . print_r($response, true));
+
+  // Optional: Check the response
+  if ( is_wp_error( $response ) ) {
+      $error_message = $response->get_error_message();
+      // error_log('Error message: ' . print_r($error_message, true));
+      // Handle error (log it, notify someone, etc.)
+  }
+}
+
+add_action( 'add_attachment', 'detect_uploaded_image_and_store_url' );
