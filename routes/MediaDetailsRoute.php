@@ -57,6 +57,11 @@ class MediaDetailsRoute {
     $creditsAvailable = $rData['credits'];
 
     if ($creditsAvailable > 0) {
+  
+      // Initialize an array to hold the results
+      $results = [];
+      $analyzeSucess = false;
+
       // error_log('API Data: ' . print_r($license_key, true));
       // generate alt text
       $apiUrl = 'https://api.altly.io/analyze/image';
@@ -77,18 +82,81 @@ class MediaDetailsRoute {
 
       if (is_wp_error($api_response)) {
         $response['error'] = $api_response->get_error_message();
-        error_log('API Error Response: ' . print_r($response['error'], true));
-        return new \WP_REST_Response(['error' => $api_response->get_error_message()], 500);
+        // error_log('API Error Response: ' . print_r($response['error'], true));
+        // return new \WP_REST_Response(['error' => $api_response->get_error_message()], 500);
+        $results[] = ['url' => $image_url, 'error' => $error_message];
       } 
       
       $api_status = wp_remote_retrieve_response_code($api_response);
       $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
     
       if ($api_status == 200) {
-        return new \WP_REST_Response(['message' => 'Alt Text Generated'] + $api_data, 200);
+        // return new \WP_REST_Response(['message' => 'Alt Text Generated'] + $api_data, 200);
+        $results[] = ['url' => $image_url, 'altText' => $api_data['altText']];
+        $analyzeSucess = true;
       }
 
-      return new \WP_REST_Response($api_data ?: ['error' => 'Invalid API response'], $api_status ?: 500);
+      if ($analyzeSucess) {
+        
+        $user_id = get_option('_altly_license_key_user_id');
+        $apiUrlRet = 'https://api.altly.io/api/image/retrieve';
+
+        $headers = ['Content-Type' => 'application/json'];
+
+        $body = json_encode([
+            'userId' => $user_id,
+            'source' => $image_url
+        ]);
+
+        $api_response = wp_remote_post($apiUrlRet, [
+            'headers' => $headers,
+            'body'    => $body,
+        ]);
+
+        if (is_wp_error($api_response)) {
+            $error_message = $api_response->get_error_message();
+            $results[] = ['url' => $image_url, 'error' => $error_message];
+        } else {
+            $api_status = wp_remote_retrieve_response_code($api_response);
+            $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+
+            if ($api_status != 200) {
+                $results[] = [
+                    'url' => $image_url,
+                    'error' => "API returned status code $api_status"
+                ];
+            } elseif (empty($api_data)) {
+                $results[] = [
+                    'url' => $image_url,
+                    'error' => 'API response is empty or missing results'
+                ];
+            } else {
+              $attachment_id = attachment_url_to_postid($api_data[0]['source']);
+
+              if ($attachment_id) {
+                  $caption = $api_data[0]['caption'];
+                  update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($caption));
+
+                  $results[] = [
+                      'url' => $api_data[0]['source'],
+                      'caption' => $caption,
+                      'updated' => true,
+                  ];
+              } else {
+                  $results[] = [
+                      'url' => $api_data['0']['source'],
+                      'returned_api_data' => $api_data,
+                      'error' => 'Could not find attachment ID for this image.'
+                  ];
+              }
+            }
+        }
+    
+        return new \WP_REST_Response(['message' => 'Processed images', 'results' => $results], 200);
+      }
+
+
+      // return new \WP_REST_Response($api_data ?: ['error' => 'Invalid API response'], $api_status ?: 500);
     } else {
       return new \WP_REST_Response($api_data ?: ['error' => 'No Credits Available'], $api_status ?: 500);
     }
@@ -206,7 +274,7 @@ class MediaDetailsRoute {
   
             if (is_wp_error($api_response)) {
               $response['error'] = $api_response->get_error_message();
-              error_log('API Error Response: ' . print_r($response['error'], true));
+              // error_log('API Error Response: ' . print_r($response['error'], true));
               $results[] = ['url' => $item['url'], 'error' => $error_message];
             } else {
               $api_status = wp_remote_retrieve_response_code($api_response);
