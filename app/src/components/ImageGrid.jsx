@@ -48,7 +48,7 @@ export default function ImageGrid({ onDataChange }) {
           url: item.url
         }));
 
-        // console.log('All Data:', data.media_details);
+        console.log('All Data:', data);
         // console.log('Missing Alt Text:', itemsWithMissingAltText);
         setAltImageData(itemsWithMissingAltText);
 
