@@ -32,7 +32,7 @@ function enqueue_ai_alt_text_script() {
       'altly', // Unique handle
       plugin_dir_url(__FILE__) . '/app/dist/assets/index.js', // Source URL
       array(), // Dependencies (if any)
-      '5', // Version
+      '4', // Version
       true // Load script in the footer
     );
 
@@ -41,7 +41,7 @@ function enqueue_ai_alt_text_script() {
       'altly', // Unique handle
       plugin_dir_url(__FILE__) . '/app/dist/assets/index.css', // Source URL
       array(), // Dependencies (if any)
-      '5' // Version
+      '4' // Version
     );
   }
 }
@@ -141,14 +141,11 @@ add_action('admin_footer', 'add_script');
 function detect_uploaded_image_and_store_url( $attachment_id ) {
   $image_url = wp_get_attachment_url( $attachment_id );
 
-  // Store the image URL in a transient or option
-  // set_transient( 'latest_uploaded_image_url', $image_url, 60 * 60 ); // Expire after 1 hour for example
-
   // URL to your REST API endpoint
-  $api_url = site_url() . '/wp-json/altly/v1/handle-single-image-upload';
+  $api_url = home_url() . '/wp-json/altly/v1/handle-single-image-upload';
 
-  // error_log('site Url: ' . print_r($api_url, true));
-  // error_log('Image Url: ' . print_r($image_url, true));
+  // error_log('Requesting API URL: ' . $api_url);
+
 
   // Make a POST request to your REST API endpoint
   $response = wp_remote_post( $api_url, array(
@@ -158,13 +155,11 @@ function detect_uploaded_image_and_store_url( $attachment_id ) {
       ),
   ));
 
-  // error_log('Response: ' . print_r($response, true));
-
   // Optional: Check the response
-  if ( is_wp_error( $response ) ) {
+  if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) != 200  ) {
       $error_message = $response->get_error_message();
-      // error_log('Error message: ' . print_r($error_message, true));
-      // Handle error (log it, notify someone, etc.)
+      // Use admin notices to display any errors
+      error_log('detect_uploaded_image_and_store_error_message: ' . print_r($error_message, true));
   }
 }
 
