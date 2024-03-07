@@ -15,6 +15,9 @@ export default function ImageGrid({ onDataChange }) {
   const [imagesMissingAltText, setImagesMissingAltText] = useState(0);
   const [altImageData, setAltImageData] = useState();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20; // Number of items to show per page
+
   const updateData = () => {
     onDataChange(altImageData); // Update the parent component's state
   };
@@ -24,6 +27,20 @@ export default function ImageGrid({ onDataChange }) {
       updateData();
     }
   }, [altImageData]);
+
+  // Calculate which files to display based on the current page
+  const indexOfLastFile = currentPage * itemsPerPage;
+  const indexOfFirstFile = indexOfLastFile - itemsPerPage;
+  const currentFiles = files.slice(indexOfFirstFile, indexOfLastFile);
+
+  // Pagination handlers
+  const handlePreviousPage = () => {
+    setCurrentPage((prevPage) => (prevPage > 1 ? prevPage - 1 : prevPage));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage((prevPage) => (prevPage < Math.ceil(files.length / itemsPerPage) ? prevPage + 1 : prevPage));
+  };
 
   /*
     Update the URL to the CMS API endpoint.
@@ -50,15 +67,17 @@ export default function ImageGrid({ onDataChange }) {
 
         console.log('All Data:', data);
         // console.log('Missing Alt Text:', itemsWithMissingAltText);
+        // we're setting this below so we can send it to the dashboard which 
+        // connects and sends it to the HeadingDashboard for bulk generation
         setAltImageData(itemsWithMissingAltText);
 
-        // Process the data and create new file objects
-        const newFiles = data.media_details.map((item) => ({
+        // Process the data and create new file objects, these are the images displayed on the plugin dashboard
+        const newFiles = data.media_details.filter(item => !item.alt_text || item.alt_text.trim() === '').map((item) => ({
           id: item.id,
           title: `Image ${item.id}`,
           size: `${item.metadata.width}x${item.metadata.height}`,
           altText: item.alt_text,
-          confidenceScore: 90,
+          confidenceScore: Math.round(item.confidence_score * 100) / 100,
           source: item.url,
         }));
 
@@ -140,7 +159,7 @@ export default function ImageGrid({ onDataChange }) {
             role='list'
             className='grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:gap-x-8'
           >
-            {files.map((file, index) => (
+            {currentFiles.map((file, index) => (
               <li key={file.id} className='relative'>
                 <div className='group aspect-h-7 aspect-w-10 block w-full overflow-hidden rounded-lg bg-gray-100 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 focus-within:ring-offset-gray-100'>
                   <img
@@ -157,9 +176,9 @@ export default function ImageGrid({ onDataChange }) {
                     </span>
                   </button>
                 </div>
-                <p className='pointer-events-none mt-2 block truncate text-sm font-medium text-gray-900'>
+                {/* <p className='pointer-events-none mt-2 block truncate text-sm font-medium text-gray-900'>
                   {file.confidenceScore}
-                </p>
+                </p> */}
                 <p className='pointer-events-none block truncate text-sm font-medium text-gray-900'>
                   {file.altText ? file.altText : 'Missing Alt Text'}
                 </p>
@@ -176,7 +195,13 @@ export default function ImageGrid({ onDataChange }) {
           {/*
             Pagination should be supplied by the CMS API and may differ based on the CMS.
           */}
-          <Pagination />
+          <Pagination
+            currentPage={currentPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={files.length}
+            handlePreviousPage={handlePreviousPage}
+            handleNextPage={handleNextPage}
+          />
         </div>
       )}
     </div>

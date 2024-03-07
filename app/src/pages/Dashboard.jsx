@@ -5,8 +5,6 @@ import getBaseUrl from '../helpers/baseUrlHelper';
 
 export default function Dashboard() {
   const [imageData, setImageData] = useState(null);
-  
-  // console.log(getBaseUrl());
 
 
   // Function to update the state, which will be passed to ImageGrid
