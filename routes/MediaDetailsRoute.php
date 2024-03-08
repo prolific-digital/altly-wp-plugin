@@ -166,8 +166,10 @@ class MediaDetailsRoute {
                 if ($attachment_id) {
                     // Retrieve the alt text or caption provided by the API.
                     $caption = $api_data[0]['caption'];
+                    $confidence_score = $api_data[0]['confidence'];
                     // Update the alt text for the attachment in the WordPress database.
                     update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($caption));
+                    update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($confidence_score));
       
                     // Record the successful update in the results array, including the image source, caption, and an indication that the update was successful.
                     $results[] = [
@@ -265,82 +267,72 @@ class MediaDetailsRoute {
     $user_id = get_option('_altly_license_key_user_id');
 
     if ($user_id) {
-      // Collect all image URLs into a new array
-      $imageUrls = [];
+
+      // Convert your list of image URLs into an associative array with URLs as keys for faster lookup
+      $imageUrlsAssoc = array_flip(array_column($images_missing_alt_text_arr, 'url'));
   
-      foreach ($images_missing_alt_text_arr as $item) {
-          $imageUrls[] = $item['url'];
-      }
-  
-      error_log('API Data: ' . print_r($imageUrls, true));
+      // error_log('API Data: ' . print_r($imageUrls, true));
   
       // Define the API URL for batch processing
       $apiUrlBatch = 'https://api.altly.io/api/image/retrieve-batch';
   
       // Prepare the headers for the API request
       $headers = ['Content-Type' => 'application/json'];
+
+      // Encode the user ID and the chunk of image source URLs into the JSON body of the request
+      $body = json_encode([
+          'userId' => $user_id
+      ]);
   
-      // Split $imageUrls into chunks of 40
-      $chunks = array_chunk($imageUrls, 40);
+      // Perform a POST request to the external API with each chunk
+      $api_response = wp_remote_post($apiUrlBatch, [
+          'headers' => $headers,
+          'body'    => $body,
+      ]);
   
-      foreach ($chunks as $chunk) {
-          // Encode the user ID and the chunk of image source URLs into the JSON body of the request
-          $body = json_encode([
-              'userId' => $user_id,
-              'sources' => $chunk // The chunk of image URLs
-          ]);
-  
-          // Perform a POST request to the external API with each chunk
-          $api_response = wp_remote_post($apiUrlBatch, [
-              'headers' => $headers,
-              'body'    => $body,
-          ]);
-  
-          // Handle the response for each chunk
-          if (!is_wp_error($api_response)) {
-              $api_status = wp_remote_retrieve_response_code($api_response);
-              $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
-  
-              if ($api_status == 200 && !empty($api_data)) {
-                  // Successful API response for the chunk
-                  error_log('Chunk API Data: ' . print_r($api_data, true));
-                  foreach ($api_data as $imageData) {
-                      $attachment_id = attachment_url_to_postid($imageData['source']);
-                      if ($attachment_id) {
-                          $caption = $imageData['caption'];
-                          $confidence_score = $imageData['confidence'];
-                          update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($caption));
-                          update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($confidence_score));
-                          error_log("Success: Updated attachment ID {$attachment_id} with new caption for chunk.");
-                      } else {
-                          // Error for specific image data processing in the chunk
-                          error_log('Error processing specific image data in chunk: Unable to find attachment ID for URL ' . $imageData['source']);
-                      }
-                  }
-              } else {
-                  // Handle non-200 responses or empty API data for the chunk
-                  if ($api_status != 200) {
-                      error_log("API Error for chunk: Received status code {$api_status}");
-                  } elseif (empty($api_data)) {
-                      error_log("API Error for chunk: Data is empty or invalid JSON");
-                  }
-                  error_log('API Response for chunk: ' . print_r($api_response, true));
-              }
+      // Handle the response for each chunk
+      if (!is_wp_error($api_response)) {
+          $api_status = wp_remote_retrieve_response_code($api_response);
+          $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+          if ($api_status == 200 && !empty($api_data)) {
+            foreach ($api_data as $imageData) {
+                // Check if the URL from the API response exists as a key in your associative array
+                if (isset($imageUrlsAssoc[$imageData['source']])) {
+                    $attachment_id = attachment_url_to_postid($imageData['source']);
+                    if ($attachment_id) {
+                        $alt_text = $imageData['caption']; // Adjust according to actual API response structure
+                        $confidence_score = $imageData['confidence']; // Adjust according to actual API response structure
+    
+                        // Update the alt text and confidence score for the matched image
+                        update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($alt_text));
+                        update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($confidence_score));
+    
+                        error_log("Success: Updated attachment ID {$attachment_id} with new alt text.");
+                    } else {
+                        error_log('Error: Unable to find attachment ID for URL ' . $imageData['image_url']);
+                    }
+                }
+            }
           } else {
-              // Handle WP_Error for the chunk
-              $error_message = $api_response->get_error_message();
-              error_log("WP_Error for chunk: {$error_message}");
+              // Handle non-200 responses or empty API data for the chunk
+              if ($api_status != 200) {
+                  error_log("API Error for chunk: Received status code {$api_status}");
+              } elseif (empty($api_data)) {
+                  error_log("API Error for chunk: Data is empty or invalid JSON");
+              }
+              error_log('API Response for chunk: ' . print_r($api_response, true));
           }
+      } else {
+          // Handle WP_Error for the chunk
+          $error_message = $api_response->get_error_message();
+          error_log("WP_Error for chunk: {$error_message}");
       }
     }
-    // After processing all media items and before preparing the response data:
-    $images_missing_alt_text_count = count($images_missing_alt_text_arr) - $successful_updates; // Count the number of images missing alt text.
-
 
     // Prepare the response data including the total number of images, the count of images missing alt text, and the detailed media information.
     $response_data = array(
       'total_images' => $total_images, // Include the total number of images.
-      'images_missing_alt_text' => $images_missing_alt_text_count, // Include the count of images missing alt text.
+      'images_missing_alt_text' => count($images_missing_alt_text_arr), // Include the count of images missing alt text.
       'media_details' => $media_details, // Include the array of media details.
       'api_data' => $api_data,
       'error' => $api_response
@@ -363,9 +355,8 @@ class MediaDetailsRoute {
         // Initialize an empty array to store image URLs.
         $imageUrls = [];
         
-        foreach ($image_data as $item) {// Decode URL to convert % encoded characters back to their original form
-          $decodedUrl = urldecode($item['url']);
-          $imageUrls[] = $decodedUrl;
+        foreach ($image_data as $item) {
+          $imageUrls[] = $item['url'];
         }
         
         // Define the API URL
@@ -409,156 +400,156 @@ class MediaDetailsRoute {
   }
 
   // Handles the bulk generation of alt text for multiple images.
-  public function retrieve_alt_text($request) {
-    // Retrieve the HTTP method of the request.
-    $method = $request->get_method();
+  // public function retrieve_alt_text($request) {
+  //   // Retrieve the HTTP method of the request.
+  //   $method = $request->get_method();
 
-    // Check if the request method is POST, indicating a submission of data.
-    if ('POST' === $method) {
-      // Retrieve the 'image_data' parameter from the request.
-      $image_data = $request->get_param('image_data');
+  //   // Check if the request method is POST, indicating a submission of data.
+  //   if ('POST' === $method) {
+  //     // Retrieve the 'image_data' parameter from the request.
+  //     $image_data = $request->get_param('image_data');
 
-      // Check if image data has been provided with the request.
-      if (!empty($image_data)) {
-        // Retrieve the stored license key option from the WordPress database.
-        $license_key = get_option('_altly_license_key');
+  //     // Check if image data has been provided with the request.
+  //     if (!empty($image_data)) {
+  //       // Retrieve the stored license key option from the WordPress database.
+  //       $license_key = get_option('_altly_license_key');
 
-        // Fetch the current user's available credits for using the service.
-        $rData = $this->fetchUserCredits();
-        $creditsAvailable = $rData['credits'];
+  //       // Fetch the current user's available credits for using the service.
+  //       $rData = $this->fetchUserCredits();
+  //       $creditsAvailable = $rData['credits'];
   
-        // Limit the processing to the first 2 items in the provided image data for this example.
-        $limited_image_data = array_slice($image_data, 0, 2);
+  //       // Limit the processing to the first 2 items in the provided image data for this example.
+  //       $limited_image_data = array_slice($image_data, 0, 2);
   
-        // Initialize an array to hold the results of the alt text generation.
-        $results = [];
-        $analyzeSuccess = false; // Flag to track successful alt text generation across all items.
+  //       // Initialize an array to hold the results of the alt text generation.
+  //       $results = [];
+  //       $analyzeSuccess = false; // Flag to track successful alt text generation across all items.
   
-        // Loop through each item in the limited set of image data.
-        foreach ($limited_image_data as $item) {
-          // Check if the user has credits available before processing each item.
-          if ($creditsAvailable > 0) {
-            // Define the API URL for analyzing the image and generating alt text.
-            $apiUrl = 'https://api.altly.io/analyze/image';
+  //       // Loop through each item in the limited set of image data.
+  //       foreach ($limited_image_data as $item) {
+  //         // Check if the user has credits available before processing each item.
+  //         if ($creditsAvailable > 0) {
+  //           // Define the API URL for analyzing the image and generating alt text.
+  //           $apiUrl = 'https://api.altly.io/analyze/image';
             
-            // Prepare the headers for the API request, including the Content-Type and license key.
-            $headers = ['Content-Type' => 'application/json', 'license-key' => $license_key];
+  //           // Prepare the headers for the API request, including the Content-Type and license key.
+  //           $headers = ['Content-Type' => 'application/json', 'license-key' => $license_key];
   
-            // Encode the current item's image URL into the JSON body of the request.
-            $body = json_encode(['imageUrl' => $item['url']]);
+  //           // Encode the current item's image URL into the JSON body of the request.
+  //           $body = json_encode(['imageUrl' => $item['url']]);
         
-            // Perform a POST request to the external API with the prepared headers and body.
-            $api_response = wp_remote_post($apiUrl, [
-              'headers' => $headers,
-              'body'    => $body,
-            ]);
+  //           // Perform a POST request to the external API with the prepared headers and body.
+  //           $api_response = wp_remote_post($apiUrl, [
+  //             'headers' => $headers,
+  //             'body'    => $body,
+  //           ]);
   
-            // Check if the API response is a WordPress error.
-            if (is_wp_error($api_response)) {
-              // Extract the error message from the API response.
-              $error_message = $api_response->get_error_message();
-              // Add the error information to the results array, marking this item as failed.
-              $results[] = ['url' => $item['url'], 'error' => $error_message];
-            } else {
-              // Retrieve the HTTP status code and the response body from the API response.
-              $api_status = wp_remote_retrieve_response_code($api_response);
-              $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+  //           // Check if the API response is a WordPress error.
+  //           if (is_wp_error($api_response)) {
+  //             // Extract the error message from the API response.
+  //             $error_message = $api_response->get_error_message();
+  //             // Add the error information to the results array, marking this item as failed.
+  //             $results[] = ['url' => $item['url'], 'error' => $error_message];
+  //           } else {
+  //             // Retrieve the HTTP status code and the response body from the API response.
+  //             $api_status = wp_remote_retrieve_response_code($api_response);
+  //             $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
           
-              // Check if the API response status code is 200 (OK).
-              if ($api_status == 200) {
-                // Add the generated alt text to the results array for this item.
-                $results[] = ['url' => $item['url'], 'altText' => $api_data['altText']];
-                $analyzeSuccess = true;
-              }
-            }
-          }
-        }
+  //             // Check if the API response status code is 200 (OK).
+  //             if ($api_status == 200) {
+  //               // Add the generated alt text to the results array for this item.
+  //               $results[] = ['url' => $item['url'], 'altText' => $api_data['altText']];
+  //               $analyzeSuccess = true;
+  //             }
+  //           }
+  //         }
+  //       }
   
-        // If alt text was successfully generated for all items, proceed to further processing.
-        if ($analyzeSuccess) {
-          // This conditional block executes if the $analyzeSuccess flag is true, indicating that the image analysis and alt text generation were successful.
+  //       // If alt text was successfully generated for all items, proceed to further processing.
+  //       if ($analyzeSuccess) {
+  //         // This conditional block executes if the $analyzeSuccess flag is true, indicating that the image analysis and alt text generation were successful.
         
-          // Iterate over the image data array to perform additional processing on each image.
-          foreach ($image_data as $item) {
-            // Define the API URL for retrieving the processed image information.
-            $apiUrlRet = 'https://api.altly.io/api/image/retrieve';
+  //         // Iterate over the image data array to perform additional processing on each image.
+  //         foreach ($image_data as $item) {
+  //           // Define the API URL for retrieving the processed image information.
+  //           $apiUrlRet = 'https://api.altly.io/api/image/retrieve';
         
-            // Prepare the headers for the API request. In this case, only the content type is specified since authentication might be handled differently.
-            $headers = ['Content-Type' => 'application/json'];
+  //           // Prepare the headers for the API request. In this case, only the content type is specified since authentication might be handled differently.
+  //           $headers = ['Content-Type' => 'application/json'];
         
-            // Encode the user ID and the image source URL into the JSON body of the request. This identifies which user's image to retrieve and the source of the image.
-            $body = json_encode([
-              'userId' => $user_id, // The user ID associated with the license key, used for identifying the user in the API.
-              'source' => $item['url'] // The source URL of the image that was processed.
-            ]);
+  //           // Encode the user ID and the image source URL into the JSON body of the request. This identifies which user's image to retrieve and the source of the image.
+  //           $body = json_encode([
+  //             'userId' => $user_id, // The user ID associated with the license key, used for identifying the user in the API.
+  //             'source' => $item['url'] // The source URL of the image that was processed.
+  //           ]);
         
-            // Perform a POST request to the external API with the prepared headers and body. This request is for retrieving the processed image data after alt text generation.
-            $api_response = wp_remote_post($apiUrlRet, [
-              'headers' => $headers,
-              'body'    => $body,
-            ]);
+  //           // Perform a POST request to the external API with the prepared headers and body. This request is for retrieving the processed image data after alt text generation.
+  //           $api_response = wp_remote_post($apiUrlRet, [
+  //             'headers' => $headers,
+  //             'body'    => $body,
+  //           ]);
         
-            // Check if the API response is a WordPress error.
-            if (is_wp_error($api_response)) {
-              // Extract the error message from the API response.
-              $error_message = $api_response->get_error_message();
-              // Add the error information to the results array, marking this item as failed.
-              $results[] = ['url' => $item['url'], 'error' => $error_message];
-            } else {
-              // Retrieve the HTTP status code and the response body from the API response.
-              $api_status = wp_remote_retrieve_response_code($api_response);
-              $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+  //           // Check if the API response is a WordPress error.
+  //           if (is_wp_error($api_response)) {
+  //             // Extract the error message from the API response.
+  //             $error_message = $api_response->get_error_message();
+  //             // Add the error information to the results array, marking this item as failed.
+  //             $results[] = ['url' => $item['url'], 'error' => $error_message];
+  //           } else {
+  //             // Retrieve the HTTP status code and the response body from the API response.
+  //             $api_status = wp_remote_retrieve_response_code($api_response);
+  //             $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
         
-              // Check if the API response status code is not 200 (OK), indicating an error occurred.
-              if ($api_status != 200) {
-                // Add an error entry to the results array with the HTTP status code to indicate the API call was unsuccessful.
-                $results[] = [
-                  'url' => $item['url'],
-                  'error' => "API returned status code $api_status"
-                ];
-              } elseif (empty($api_data)) {
-                // Check if the API response body is empty, indicating missing data.
-                $results[] = [
-                  'url' => $item['url'],
-                  'error' => 'API response is empty or missing results'
-                ];
-              } else {
-                // If the API call was successful and data is present, process the data.
-                // Attempt to find the WordPress attachment ID that corresponds to the image URL.
-                $attachment_id = attachment_url_to_postid($api_data[0]['source']);
+  //             // Check if the API response status code is not 200 (OK), indicating an error occurred.
+  //             if ($api_status != 200) {
+  //               // Add an error entry to the results array with the HTTP status code to indicate the API call was unsuccessful.
+  //               $results[] = [
+  //                 'url' => $item['url'],
+  //                 'error' => "API returned status code $api_status"
+  //               ];
+  //             } elseif (empty($api_data)) {
+  //               // Check if the API response body is empty, indicating missing data.
+  //               $results[] = [
+  //                 'url' => $item['url'],
+  //                 'error' => 'API response is empty or missing results'
+  //               ];
+  //             } else {
+  //               // If the API call was successful and data is present, process the data.
+  //               // Attempt to find the WordPress attachment ID that corresponds to the image URL.
+  //               $attachment_id = attachment_url_to_postid($api_data[0]['source']);
         
-                // Check if a valid attachment ID was found.
-                if ($attachment_id) {
-                  // Retrieve the caption or alt text from the API response.
-                  $caption = $api_data[0]['caption'];
-                  // Update the alt text for the attachment in the WordPress database.
-                  update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($caption));
+  //               // Check if a valid attachment ID was found.
+  //               if ($attachment_id) {
+  //                 // Retrieve the caption or alt text from the API response.
+  //                 $caption = $api_data[0]['caption'];
+  //                 // Update the alt text for the attachment in the WordPress database.
+  //                 update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($caption));
         
-                  // Add a success entry to the results array, including the source URL, the caption, and a flag indicating the update was successful.
-                  $results[] = [
-                    'url' => $api_data[0]['source'],
-                    'caption' => $caption,
-                    'updated' => true,
-                  ];
-                } else {
-                  // If no valid attachment ID was found, add an error entry to the results array indicating the issue.
-                  $results[] = [
-                    'url' => $api_data[0]['source'],
-                    'returned_api_data' => $api_data,
-                    'error' => 'Could not find attachment ID for this image.'
-                  ];
-                }
-              }
-            }
-          }
+  //                 // Add a success entry to the results array, including the source URL, the caption, and a flag indicating the update was successful.
+  //                 $results[] = [
+  //                   'url' => $api_data[0]['source'],
+  //                   'caption' => $caption,
+  //                   'updated' => true,
+  //                 ];
+  //               } else {
+  //                 // If no valid attachment ID was found, add an error entry to the results array indicating the issue.
+  //                 $results[] = [
+  //                   'url' => $api_data[0]['source'],
+  //                   'returned_api_data' => $api_data,
+  //                   'error' => 'Could not find attachment ID for this image.'
+  //                 ];
+  //               }
+  //             }
+  //           }
+  //         }
         
-          // After processing all images, return a success response with a message and the results array.
-          return new \WP_REST_Response(['message' => 'Processed images', 'results' => $results], 200);
-        }
+  //         // After processing all images, return a success response with a message and the results array.
+  //         return new \WP_REST_Response(['message' => 'Processed images', 'results' => $results], 200);
+  //       }
         
-      }
-    }
-  }
+  //     }
+  //   }
+  // }
 
   // Method to call an external API (template function, details not provided).
   protected function callExternalApi($image_data) {
