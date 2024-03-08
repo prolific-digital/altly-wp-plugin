@@ -179,7 +179,7 @@ export default function ImageGrid({ onDataChange }) {
                 {/* <p className='pointer-events-none mt-2 block truncate text-sm font-medium text-gray-900'>
                   {file.confidenceScore}
                 </p> */}
-                <p className='pointer-events-none block truncate text-sm font-medium text-gray-900'>
+                <p className='pointer-events-none block mt-2 truncate text-sm font-medium text-gray-900'>
                   {file.altText ? file.altText : 'Missing Alt Text'}
                 </p>
                 <p className='pointer-events-none block truncate text-sm font-medium text-gray-900'>
