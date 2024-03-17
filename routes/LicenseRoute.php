@@ -79,9 +79,10 @@ class LicenseRoute {
     $api_status = wp_remote_retrieve_response_code($api_response);
     $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
 
-    if ($api_status == 200 && isset($api_data['key']) && !empty($api_data['key'])) {
-      update_option('_altly_license_key', $api_data['key']);
-      update_option('_altly_license_key_user_id', $api_data['user_id']);
+    if ($api_status == 200 && isset($api_data['data']['id']) && !empty($api_data['data']['id'])) {
+      update_option('_altly_license_key', $license_key);
+      update_option('_altly_license_key_user_id', $api_data['data']['id']);
+      update_option('_altly_license_key_user_credits', $api_data['data']['credits']);
       return new \WP_REST_Response(['message' => 'License key updated successfully'] + $api_data, 200);
     }
 
@@ -89,9 +90,9 @@ class LicenseRoute {
   }
 
   protected function callExternalApi($license_key) {
-    $apiUrl = 'https://api.altly.io/api/validate/key';
-    $headers = ['Content-Type' => 'application/json'];
-    $body = json_encode(['key' => $license_key]);
+    $apiUrl = 'https://api.altly.io/v1/validate/license-key';
+    $headers = ['Content-Type' => 'application/json', 'license-key' => $license_key];
+    $body = json_encode(['license-key' => $license_key]);
 
     return wp_remote_post($apiUrl, [
       'headers' => $headers,

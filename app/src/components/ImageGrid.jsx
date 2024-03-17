@@ -121,11 +121,11 @@ export default function ImageGrid({ onDataChange }) {
           throw new Error(`Error: ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json();
+        const credits = await response.json();
         
-        if (data && data.credits !== undefined) {
+        if (credits !== false) {
           // setUserData({ credits: data.credits });
-          setTotalCreditsRemaining(data.credits);
+          setTotalCreditsRemaining(credits);
           setstatsLoading(false);
         } else {
           setstatsLoading(false);
