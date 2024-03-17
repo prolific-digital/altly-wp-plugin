@@ -85,7 +85,7 @@ class LicenseRoute {
       update_option('_altly_license_key_user_credits', $api_data['data']['credits']);
       return new \WP_REST_Response(['message' => 'License key updated successfully'] + $api_data, 200);
     }
-
+    
     return new \WP_REST_Response($api_data ?: ['error' => 'Invalid API response'], $api_status ?: 500);
   }
 

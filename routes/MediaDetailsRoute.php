@@ -67,8 +67,6 @@ class MediaDetailsRoute {
     // Fetch the current user's available credits for using the service.
     $creditsAvailable = get_option('_altly_license_key_user_credits');
 
-    // error_log('API Response: ' . print_r($creditsAvailable, true));
-
     // Check if the user has at least one credit available.
     if ($creditsAvailable > 0) {
 
@@ -108,8 +106,28 @@ class MediaDetailsRoute {
             // Update the alt text for the attachment in the WordPress database.
             update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($api_data['data'][0]['caption']));
             update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($api_data['data'][0]['confidence']));
+
+            $license_key = get_option('_altly_license_key');
+
+            // retrieve and update the credit | This can be better refactored into an helper function instead.
+            $apiUrl = 'https://api.altly.io/v1/validate/license-key';
+            $headers = ['Content-Type' => 'application/json', 'license-key' => $license_key];
+            $body = json_encode(['license-key' => $license_key]);
+
+            $api_response = wp_remote_post($apiUrl, [
+              'headers' => $headers,
+              'body'    => $body,
+            ]);
+
+            $api_status = wp_remote_retrieve_response_code($api_response);
+            $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+
+            if ($api_status == 200 && isset($api_data['data']['id']) && !empty($api_data['data']['id'])) {
+              update_option('_altly_license_key_user_credits', $api_data['data']['credits']);
+            }
+
           }
-          return new \WP_REST_Response(['message' => 'Processed image'] + $api_data['data'][0], 200);
+          return new \WP_REST_Response(['message' => 'Processed image'] + $api_data, 200);
         }
 
         return new \WP_REST_Response($api_data ?: ['error' => 'Invalid API response'], $api_status ?: 500);
@@ -134,7 +152,7 @@ class MediaDetailsRoute {
     // Execute the query to retrieve media attachments based on the specified arguments.
     $media_query = new \WP_Query($args);
     $media_details = array(); // Initialize an array to hold the media details.
-    $images_missing_alt_text = 0; // Initialize a counter for images lacking alt text.
+    // $images_missing_alt_text = 0; // Initialize a counter for images lacking alt text.
     $images_missing_alt_text_arr = array(); // Initialize an array to hold details of images lacking alt text.
 
     // Check if the query returned any posts (media attachments).
@@ -184,7 +202,7 @@ class MediaDetailsRoute {
     wp_reset_postdata(); // Reset the global post data again for good measure.
     
     // Process each media item
-    $successful_updates = 0; // Initialize a counter for successfully updated images
+    // $successful_updates = 0; // Initialize a counter for successfully updated images
       
     // Retrieve the user ID associated with the license key from WordPress options. This ID is used for API calls related to the user.
     $user_id = get_option('_altly_license_key_user_id');
@@ -217,6 +235,9 @@ class MediaDetailsRoute {
       if (!is_wp_error($api_response)) {
           $api_status = wp_remote_retrieve_response_code($api_response);
           $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+
+          error_log('API Response from batch retrieval of alt texts: ' . print_r($api_data, true));
+
           if ($api_status == 200 && !empty($api_data)) {
             foreach ($api_data as $imageData) {
                 // Check if the URL from the API response exists as a key in your associative array
