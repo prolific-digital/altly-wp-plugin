@@ -152,19 +152,11 @@ class MediaDetailsRoute {
 
   // Handles the request to retrieve media details.
   public function handle_get_media_details($request) {
-    // Set up query arguments to retrieve media attachments of type 'image/jpeg' and 'image/png'.
-    $args = array(
-      'post_type' => 'attachment', // Target media attachments.
-      'post_status' => 'inherit', // Include all attachments regardless of status.
-      'post_mime_type' => array('image/jpeg', 'image/png'), // Filter by JPEG and PNG image formats.
-      'posts_per_page' => -1, // Retrieve all matching media items.
-    );
+    $args = $this->defineMediaArgs();
 
     // Execute the query to retrieve media attachments based on the specified arguments.
     $media_query = new \WP_Query($args);
     $media_details = array(); // Initialize an array to hold the media details.
-    // $images_missing_alt_text = 0; // Initialize a counter for images lacking alt text.
-    $images_missing_alt_text_arr = array(); // Initialize an array to hold details of images lacking alt text.
 
     // Check if the query returned any posts (media attachments).
     if ($media_query->have_posts()) {
@@ -196,13 +188,10 @@ class MediaDetailsRoute {
 
         // Add to the main media details array.
         $media_details[] = $current_media_details;
-
-        // Check if the alt text is missing and add to the missing alt text array.
-        if (empty($alt_text)) {
-          $images_missing_alt_text_arr[] = $current_media_details;
-        }
       }
+      
       wp_reset_postdata(); // Reset the global post data to avoid conflicts with other queries.
+
     } else {
       // Return a response indicating that no media was found if the query returned no posts.
       return rest_ensure_response(array('message' => 'No media found.'));
@@ -210,87 +199,14 @@ class MediaDetailsRoute {
 
     // Retrieve the total number of images found by the query.
     $total_images = $media_query->found_posts;
+
     wp_reset_postdata(); // Reset the global post data again for good measure.
-    
-    // Process each media item
-    // $successful_updates = 0; // Initialize a counter for successfully updated images
-      
-    // Retrieve the user ID associated with the license key from WordPress options. This ID is used for API calls related to the user.
-    $user_id = get_option('_altly_license_key_user_id');
-
-    if ($user_id) {
-
-      // Convert your list of image URLs into an associative array with URLs as keys for faster lookup
-      $imageUrlsAssoc = array_flip(array_column($images_missing_alt_text_arr, 'url'));
-  
-      // error_log('API Data: ' . print_r($imageUrls, true));
-  
-      // Define the API URL for batch processing
-      $apiUrlBatch = 'https://api.altly.io/api/image/retrieve-batch';
-  
-      // Prepare the headers for the API request
-      $headers = ['Content-Type' => 'application/json'];
-
-      // Encode the user ID and the chunk of image source URLs into the JSON body of the request
-      $body = json_encode([
-          'userId' => $user_id
-      ]);
-  
-      // Perform a POST request to the external API with each chunk
-      $api_response = wp_remote_post($apiUrlBatch, [
-          'headers' => $headers,
-          'body'    => $body,
-      ]);
-  
-      // Handle the response for each chunk
-      if (!is_wp_error($api_response)) {
-          $api_status = wp_remote_retrieve_response_code($api_response);
-          $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
-
-          error_log('API Response from batch retrieval of alt texts: ' . print_r($api_data, true));
-
-          if ($api_status == 200 && !empty($api_data)) {
-            foreach ($api_data as $imageData) {
-                // Check if the URL from the API response exists as a key in your associative array
-                if (isset($imageUrlsAssoc[$imageData['source']])) {
-                    $attachment_id = attachment_url_to_postid($imageData['source']);
-                    if ($attachment_id) {
-                        $alt_text = $imageData['caption']; // Adjust according to actual API response structure
-                        $confidence_score = $imageData['confidence']; // Adjust according to actual API response structure
-    
-                        // Update the alt text and confidence score for the matched image
-                        update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($alt_text));
-                        update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($confidence_score));
-    
-                        error_log("Success: Updated attachment ID {$attachment_id} with new alt text.");
-                    } else {
-                        error_log('Error: Unable to find attachment ID for URL ' . $imageData['image_url']);
-                    }
-                }
-            }
-          } else {
-              // Handle non-200 responses or empty API data for the chunk
-              if ($api_status != 200) {
-                  error_log("API Error for chunk: Received status code {$api_status}");
-              } elseif (empty($api_data)) {
-                  error_log("API Error for chunk: Data is empty or invalid JSON");
-              }
-              error_log('API Response for chunk: ' . print_r($api_response, true));
-          }
-      } else {
-          // Handle WP_Error for the chunk
-          $error_message = $api_response->get_error_message();
-          error_log("WP_Error for chunk: {$error_message}");
-      }
-    }
 
     // Prepare the response data including the total number of images, the count of images missing alt text, and the detailed media information.
     $response_data = array(
       'total_images' => $total_images, // Include the total number of images.
-      'images_missing_alt_text' => count($images_missing_alt_text_arr), // Include the count of images missing alt text.
+      'images_missing_alt_text' => count($this->getImagesMissingAltText()), // Include the count of images missing alt text.
       'media_details' => $media_details, // Include the array of media details.
-      'api_data' => $api_data,
-      'error' => $api_response
     );
 
     // Return the prepared response data wrapped in a rest_ensure_response() for consistency with the REST API response format.
@@ -360,86 +276,39 @@ class MediaDetailsRoute {
   public function handle_incoming_caption($request) {
     
     $data = $request->get_json_params(); // get the images data
-    
     $headers = $request->get_headers(); // get headers
+    $license_key = $headers['license_key'][0]; // extract license-key from headers
 
-    $license_key = $headers['license_key'][0];
+    $isLicenseKeyValid = $this->checkLicenseKey($license_key); // check if license key is valid
 
-    $isLicenseKeyValid = $this->checkLicenseKey($license_key);
-
-    // check if license key is valid
     if ($isLicenseKeyValid) {
       // if license key matches
-      // retrieve all missing alt text from the wordpress media library
-
-      // Set up query arguments to retrieve media attachments of type 'image/jpeg' and 'image/png'.
-      $args = array(
-        'post_type' => 'attachment', // Target media attachments.
-        'post_status' => 'inherit', // Include all attachments regardless of status.
-        'post_mime_type' => array('image/jpeg', 'image/png'), // Filter by JPEG and PNG image formats.
-        'posts_per_page' => -1, // Retrieve all matching media items.
-      );
-
-      $media_query = new \WP_Query($args);
-      $images_missing_alt_text_arr = array();
-
-      // Check if the query returned any posts (media attachments).
-      if ($media_query->have_posts()) {
-        // Loop through the media attachments.
-        while ($media_query->have_posts()) {
-          $media_query->the_post(); // Set up the global post data.
-          $attachment_id = get_the_ID(); // Retrieve the ID of the current attachment.
-          $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
-          $image_url = wp_get_attachment_url($attachment_id); // Get the URL of the attachment.
-          $file_path = get_attached_file($attachment_id); // Retrieve the file path of the attachment.
-          // $attachment_metadata = wp_get_attachment_metadata($attachment_id);
-
-          // Compile the details for the current attachment.
-          $current_media_details = array(
-            'id' => $attachment_id,
-            'alt_text' => esc_attr($alt_text),
-            'url' => esc_url($image_url),
-            'file_path' => esc_url($file_path), // Note: Consider a different method for sanitizing file paths.
-            // 'metadata' => $attachment_metadata,
-          );
-
-          // Check if the alt text is missing and add to the missing alt text array.
-          if (empty($alt_text)) {
-            $images_missing_alt_text_arr[] = $current_media_details;
-          }
-        }
-        wp_reset_postdata(); // Reset the global post data to avoid conflicts with other queries.
-      } else {
-        // Return a response indicating that no media was found if the query returned no posts.
-        return rest_ensure_response(array('message' => 'No media found.'));
-      }
-      wp_reset_postdata(); // Reset the global post data again for good measure.
-
-      if (count($images_missing_alt_text_arr) > 0) {
-        // loop over the data and get matching image IDs
-        // Extract IDs from $images_missing_alt_text_arr
-        $missingAltTextAttachmentIDs = array_column($images_missing_alt_text_arr, 'id');
-
-        foreach ($data['images'] as $item) {
-          $attachment_id = $item['cms_id'];
-          if (in_array($attachment_id, $missingAltTextAttachmentIDs)) {
-              $altText = $item['alt_text'];
-              // $confidenceScore = $item['confidence'];
-
-              // update alt text for all images missing alts
-              update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($altText));
-              // update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($confidenceScore));
-          }
-        }
-
-      } else {
-        error_log('Error', true);
-      }
-
+      $images_missing_alt_text_arr = $this->getImagesMissingAltText(); // retrieve all missing alt text from the wordpress media library
+      $this->addAltTextToImage($data, $images_missing_alt_text_arr);
     }
 
     return new \WP_REST_Response('Success', 200);
 
+  }
+
+  protected function addAltTextToImage($data, $images_missing_alt_text_arr) {
+    if (count($images_missing_alt_text_arr) > 0) {
+      // loop over the data and get matching image IDs
+      // Extract IDs from $images_missing_alt_text_arr
+      $missingAltTextAttachmentIDs = array_column($images_missing_alt_text_arr, 'id');
+
+      foreach ($data['images'] as $item) {
+        $attachment_id = $item['cms_id'];
+        if (in_array($attachment_id, $missingAltTextAttachmentIDs)) {
+            $altText = $item['alt_text'];
+            // $confidenceScore = $item['confidence'];
+
+            // update alt text for all images missing alts
+            update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($altText));
+            // update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($confidenceScore));
+        }
+      }
+    }
   }
 
   protected function checkLicenseKey($license_key) {
@@ -450,5 +319,61 @@ class MediaDetailsRoute {
 
     return false;
   }
+
+  protected function getImagesMissingAltText() {
+
+    // Set up query arguments to retrieve media attachments of type 'image/jpeg' and 'image/png'.
+    $args = $this->defineMediaArgs();
+
+    $media_query = new \WP_Query($args);
+    $images_missing_alt_text_arr = array();
+
+    // Check if the query returned any posts (media attachments).
+    if ($media_query->have_posts()) {
+      // Loop through the media attachments.
+      while ($media_query->have_posts()) {
+        $media_query->the_post(); // Set up the global post data.
+        $attachment_id = get_the_ID(); // Retrieve the ID of the current attachment.
+        $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+        $image_url = wp_get_attachment_url($attachment_id); // Get the URL of the attachment.
+        $file_path = get_attached_file($attachment_id); // Retrieve the file path of the attachment.
+        $attachment_metadata = wp_get_attachment_metadata($attachment_id);
+
+        // Compile the details for the current attachment.
+        $current_media_details = array(
+          'id' => $attachment_id,
+          'alt_text' => esc_attr($alt_text),
+          'url' => esc_url($image_url),
+          'file_path' => esc_url($file_path), // Note: Consider a different method for sanitizing file paths.
+          'metadata' => $attachment_metadata,
+        );
+
+        // Check if the alt text is missing and add to the missing alt text array.
+        if (empty($alt_text)) {
+          $images_missing_alt_text_arr[] = $current_media_details;
+        }
+      }
+      wp_reset_postdata(); // Reset the global post data to avoid conflicts with other queries.
+    } else {
+      // Return a response indicating that no media was found if the query returned no posts.
+      return rest_ensure_response(array('message' => 'No media found.'));
+    }
+    wp_reset_postdata(); // Reset the global post data again for good measure.
+
+    return $images_missing_alt_text_arr;
+  }
+
+  protected function defineMediaArgs() {
+    // Set up query arguments to retrieve media attachments of type 'image/jpeg' and 'image/png'.
+    $args = array(
+      'post_type' => 'attachment', // Target media attachments.
+      'post_status' => 'inherit', // Include all attachments regardless of status.
+      'post_mime_type' => array('image/jpeg', 'image/png'), // Filter by JPEG and PNG image formats.
+      'posts_per_page' => -1, // Retrieve all matching media items.
+    );
+
+    return $args;
+  }
+
 
 }
