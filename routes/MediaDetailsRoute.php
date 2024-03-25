@@ -6,6 +6,8 @@ namespace Altly\AltTextGenerator;
 // Class MediaDetailsRoute is responsible for handling custom REST API endpoints related to media details in WordPress.
 class MediaDetailsRoute {
 
+  private $apiBaseUrl = 'https://api.altly.io/v1';
+
   // Constructor method, automatically called when an instance of the class is created.
   public function __construct() {
     // Hook into the WordPress REST API initialization to register custom endpoints.
@@ -61,93 +63,30 @@ class MediaDetailsRoute {
     return is_user_logged_in() && current_user_can('manage_options');
   }
 
-  // Handles the single image upload and initiates alt text generation.
   public function handle_single_image_upload($request) {
-    // Retrieve the 'image_url' parameter from the REST request.
+    $utility = new \ImageUtility();
+
     $image_url = $request->get_param('image_url');
-
-    // Check if the 'image_url' parameter is missing or empty.
     if (!$image_url) {
-      // Return a WP_Error indicating that no image URL was provided.
-      return new WP_Error('no_recent_upload', 'No recent image upload detected.', array('status' => 404));
+        return new WP_Error('no_recent_upload', 'No recent image upload detected.', ['status' => 404]);
     }
 
-    // Retrieve the stored license key option from the WordPress database.
-    $license_key = get_option('_altly_license_key');
-
-    // Fetch the current user's available credits for using the service.
-    $creditsAvailable = get_option('_altly_license_key_user_credits');
-
-    // Check if the user has at least one credit available.
-    if ($creditsAvailable > 0) {
-
-      // Define the API URL for analyzing the image and generating alt text.
-      $apiUrl = 'https://api.altly.io/v1/analyze/image';
-      
-      // Prepare the headers for the API request, including the Content-Type and license key.
-      $headers = ['Content-Type' => 'application/json', 'license-key' => $license_key];
-
-      // Encode the image URL into the JSON body of the request.
-      $body = json_encode(['images' => $image_url]);
-  
-      // Perform a POST request to the external API with the prepared headers and body.
-      $api_response = wp_remote_post($apiUrl, [
-        'headers' => $headers,
-        'body'    => $body,
-      ]);
-
-      // Check if the API response is a WordPress error.
-      if (is_wp_error($api_response)) {
-        // Extract the error message from the API response.
-        return new \WP_REST_Response(['error' => $api_response->get_error_message()], 500);
-      } else {
-        // Retrieve the HTTP status code and the response body from the API response.
-        $api_status = wp_remote_retrieve_response_code($api_response);
-        $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
-
-        // This api_data needs to return the source as well.
-
-        error_log('API Response: ' . print_r($api_data, true));
-    
-        // Check if the API response status code is 200 (OK).
-        if ($api_status == 200) {
-          // Retrieve the attachment ID of the Image
-          $attachment_id = attachment_url_to_postid($image_url);
-          if ($attachment_id) {
-            // Update the alt text for the attachment in the WordPress database.
-            update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($api_data['data'][0]['caption']));
-            update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($api_data['data'][0]['confidence']));
-
-            $license_key = get_option('_altly_license_key');
-
-            // retrieve and update the credit | This can be better refactored into an helper function instead.
-            $apiUrl = 'https://api.altly.io/v1/validate/license-key';
-            $headers = ['Content-Type' => 'application/json', 'license-key' => $license_key];
-            $body = json_encode(['license-key' => $license_key]);
-
-            $api_response = wp_remote_post($apiUrl, [
-              'headers' => $headers,
-              'body'    => $body,
-            ]);
-
-            $api_status = wp_remote_retrieve_response_code($api_response);
-            $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
-
-            if ($api_status == 200 && isset($api_data['data']['id']) && !empty($api_data['data']['id'])) {
-              update_option('_altly_license_key_user_credits', $api_data['data']['credits']);
-            }
-
-          }
-          return new \WP_REST_Response(['message' => 'Processed image'] + $api_data, 200);
-        }
-
-        return new \WP_REST_Response($api_data ?: ['error' => 'Invalid API response'], $api_status ?: 500);
-      }
-      
-    } else {
-      // Return an error response indicating that no credits are available for alt text generation.
-      return new \WP_REST_Response(['error' => 'No Credits Available'], 500);
+    if ($utility->getUserCredits() <= 0) {
+        return new \WP_REST_Response(['error' => 'No Credits Available'], 500);
     }
+
+    $apiResponse = $utility->analyzeImage($this->apiBaseUrl, $image_url);
+    if (is_wp_error($apiResponse)) {
+        return $apiResponse;  // WP_Error is returned directly
+    }
+
+    $attachment_id = attachment_url_to_postid($image_url);
+    if ($attachment_id) {
+        $utility->updateImageAltText($attachment_id, $apiResponse['data'][0]);
+        $utility->updateUserCredits($this->apiBaseUrl);
+    }
+
+    return new \WP_REST_Response(['message' => 'Processed image'] + $apiResponse, 200);
   }
 
   // Handles the request to retrieve media details.
