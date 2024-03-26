@@ -2,7 +2,7 @@
 
 namespace Altly\AltTextGenerator;
 
-class Utils {
+class Helpers {
   
     public function defineMediaArgs() {
       // Set up query arguments to retrieve media attachments of type 'image/jpeg' and 'image/png'.
