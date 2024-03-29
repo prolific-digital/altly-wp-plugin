@@ -32,7 +32,7 @@ function enqueue_ai_alt_text_script() {
       'altly', // Unique handle
       plugin_dir_url(__FILE__) . '/app/dist/assets/index.js', // Source URL
       array(), // Dependencies (if any)
-      '3', // Version
+      '4', // Version
       true // Load script in the footer
     );
 
@@ -41,7 +41,7 @@ function enqueue_ai_alt_text_script() {
       'altly', // Unique handle
       plugin_dir_url(__FILE__) . '/app/dist/assets/index.css', // Source URL
       array(), // Dependencies (if any)
-      '3' // Version
+      '4' // Version
     );
   }
 }
@@ -142,9 +142,12 @@ function analyze_image_on_upload( $attachment_id ) {
 
   // send a request to altly to analyze the image
   $results = analyzeImagev2($attachment_id);
+
+  if (!is_wp_error($results)) {
+    // store the response back to the image
+    update_post_meta($attachment_id, '_wp_attachment_image_alt', $results['data'][0]['metadata']['alt_text']);
+  }
   
-  // store the response back to the image
-  update_post_meta($attachment_id, '_wp_attachment_image_alt', $results['data'][0]['metadata']['alt_text']);
 }
 
 function analyzeImagev2($attachment_id) {
