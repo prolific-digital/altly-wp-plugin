@@ -7,14 +7,12 @@ namespace Altly\AltTextGenerator;
 class MediaDetailsRoute {
 
   private $helper;
-  private $apiBaseUrl = 'https://api.altly.io/v1';
 
   // Constructor method, automatically called when an instance of the class is created.
   public function __construct() {
     // Hook into the WordPress REST API initialization to register custom endpoints.
     add_action('rest_api_init', array($this, 'register_get_media_details'));
     add_action('rest_api_init', array($this, 'register_bulk_generate'));
-    add_action('rest_api_init', array($this, 'register_single_image_upload'));
     add_action('rest_api_init', array($this, 'register_caption_retrieval'));
     $this->helper = new \Altly\AltTextGenerator\Helpers();
   }
@@ -49,44 +47,10 @@ class MediaDetailsRoute {
     ));
   }
 
-  // Registers a REST route for handling single image upload and alt text generation.
-  public function register_single_image_upload() {
-    // Define a new route in the WordPress REST API for single image upload with the endpoint '/handle-single-image-upload'.
-    register_rest_route('altly/v1', '/handle-single-image-upload', array(
-      'methods' => 'POST', // Specify that this endpoint responds to HTTP POST requests.
-      'callback' => array($this, 'handle_single_image_upload'), // Callback function to process the request.
-      'permission_callback' => '__return_true', // Permission callback to control access; here, it allows all requests.
-    ));
-  }
-
   // (Optional) A method to check user permissions before allowing access to certain endpoints.
   public function check_permission() {
     // Returns true if the user is logged in and has the 'manage_options' capability, ensuring administrative access.
     return is_user_logged_in() && current_user_can('manage_options');
-  }
-
-  public function handle_single_image_upload($request) {
-    $image_url = $request->get_param('image_url');
-    if (!$image_url) {
-        return new WP_Error('no_recent_upload', 'No recent image upload detected.', ['status' => 404]);
-    }
-
-    if ($this->helper->getUserCredits() <= 0) {
-        return new \WP_REST_Response(['error' => 'No Credits Available'], 500);
-    }
-
-    $apiResponse = $this->helper->analyzeImage($this->apiBaseUrl, $image_url);
-    if (is_wp_error($apiResponse)) {
-        return $apiResponse;  // WP_Error is returned directly
-    }
-
-    $attachment_id = attachment_url_to_postid($image_url);
-    if ($attachment_id) {
-        $this->helper->updateImageAltText($attachment_id, $apiResponse['data'][0]);
-        $this->helper->updateUserCredits($this->apiBaseUrl);
-    }
-
-    return new \WP_REST_Response(['message' => 'Processed image'] + $apiResponse, 200);
   }
 
   public function handle_get_media_details($request) {
@@ -110,19 +74,36 @@ class MediaDetailsRoute {
   }
 
   public function handle_bulk_generate($request) {
-    $apiUrl = 'https://api.altly.io/v1/batch/queue';
 
     if ('POST' !== $request->get_method()) {
         return new \WP_REST_Response(['error' => 'Invalid request method'], 405);
     }
 
-    $image_data = $request->get_param('image_data');
-    if (empty($image_data)) {
-        return new \WP_REST_Response(['error' => 'No image data provided'], 400);
+    // get all media missing alt text
+    $args = array(
+      'post_type'      => 'attachment', // Target attachments only.
+      'post_mime_type' => 'image', // Optionally, target only images.
+      'post_status'    => 'inherit', // Default status for attachments.
+      'posts_per_page' => -1, // Retrieve all matching attachments.
+      'meta_query'     => array(
+          'relation' => 'OR',
+          array(
+              'key'     => '_wp_attachment_image_alt',
+              'compare' => 'NOT EXISTS' // Finds attachments without alt text meta key.
+          ),
+          array(
+              'key'   => '_wp_attachment_image_alt',
+              'value' => '', // Finds attachments where alt text is empty.
+              'compare' => '='
+          )
+      )
+    );
+    
+    $attachments_missing_alt = get_posts($args);
+    
+    foreach ($attachments_missing_alt as $attachment) {
+      $response = $this->helper->queueImages($attachment->ID);
     }
-
-    $imageUrls = array_column($image_data, 'url');
-    $response = $this->helper->queueImages($imageUrls, $apiUrl);
 
     return $response;
   }

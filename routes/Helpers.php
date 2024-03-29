@@ -27,21 +27,43 @@ class Helpers {
 
     public function analyzeImage($apiBaseUrl, $image_url) {
         $apiUrl = $apiBaseUrl . '/analyze/image';
-        $headers = $this->prepareHeaders();
-        $body = json_encode(['images' => $image_url]);
 
-        $api_response = wp_remote_post($apiUrl, ['headers' => $headers, 'body' => $body]);
+        error_log('apiUrl: ' . print_r($apiUrl, true));
+
+        $headers = $this->prepareHeaders();
+
+        $attachment_id = attachment_url_to_postid($image_url);
+        
+        $images = [
+          [
+              "name" => "Bourbon Bottle",
+              "url" => $image_url,
+              "cms_id" => "cms_id_1",
+              "cms_platform" => "cms_platform_1"
+          ]
+      ];
+
+      $jsonBody = json_encode(['images' => $images]);
+        
+
+        // $body = json_encode(['images' => [$image_url]]);
+
+        error_log('Body: ' . print_r($jsonBody, true));
+
+        $api_response = wp_remote_post($apiUrl, ['headers' => $headers, 'body' => $jsonBody]);
         if (is_wp_error($api_response)) {
             return new WP_Error('api_error', $api_response->get_error_message());
         }
 
-        $api_status = wp_remote_retrieve_response_code($api_response);
-        $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
-        if ($api_status != 200) {
-            return new WP_Error('api_failure', 'API call failed', ['status' => $api_status]);
-        }
+        error_log('API Response: ' . print_r($api_response, true));
 
-        return $api_data;
+        // $api_status = wp_remote_retrieve_response_code($api_response);
+        // $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+        // if ($api_status != 200) {
+        //     return new WP_Error('api_failure', 'API call failed', ['status' => $api_status]);
+        // }
+
+        // return $api_data;
     }
 
     public function updateImageAltText($attachment_id, $imageData) {
@@ -135,13 +157,26 @@ class Helpers {
       return $images_missing_alt_text_arr;
     }
 
-    public function queueImages($imageUrls, $apiUrl) {
+    public function queueImages($attachment_id) {
+        $apiUrl = 'https://api.altly.io/v1/batch/queue';
+
         $headers = $this->prepareHeaders();
-        $body = json_encode(['images' => $imageUrls]);
+
+        $image_url = wp_get_attachment_url($attachment_id);
+  
+        $images = [
+          [
+            "url" => $image_url,
+            "cms_id" => $attachment_id,
+            "cms_platform" => "WordPress"
+          ]
+        ];
+      
+        $jsonBody = json_encode(['images' => $images]);
 
         $api_response = wp_remote_post($apiUrl, [
             'headers' => $headers,
-            'body' => $body,
+            'body' => $jsonBody,
         ]);
 
         return $this->processApiResponse($api_response);

@@ -138,29 +138,48 @@ add_action('admin_head', 'enqueue_hmr_client');
 add_action('admin_footer', 'add_script');
 
 
-function detect_uploaded_image_and_store_url( $attachment_id ) {
-  $image_url = wp_get_attachment_url( $attachment_id );
+function analyze_image_on_upload( $attachment_id ) {
 
-  // URL to your REST API endpoint
-  $api_url = home_url() . '/wp-json/altly/v1/handle-single-image-upload';
-
-  // error_log('Requesting API URL: ' . $api_url);
-
-
-  // Make a POST request to your REST API endpoint
-  $response = wp_remote_post( $api_url, array(
-      'body' => array( 'image_url' => $image_url ),
-      'headers' => array(
-          'Content-Type' => 'application/x-www-form-urlencoded',
-      ),
-  ));
-
-  // Optional: Check the response
-  if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) != 200  ) {
-      $error_message = $response->get_error_message();
-      // Use admin notices to display any errors
-      error_log('detect_uploaded_image_and_store_error_message: ' . print_r($error_message, true));
-  }
+  // send a request to altly to analyze the image
+  $results = analyzeImagev2($attachment_id);
+  
+  // store the response back to the image
+  update_post_meta($attachment_id, '_wp_attachment_image_alt', $results['data'][0]['metadata']['alt_text']);
 }
 
-add_action( 'add_attachment', 'detect_uploaded_image_and_store_url' );
+function analyzeImagev2($attachment_id) {
+  $apiUrl = 'https://api.altly.io/v1/analyze/image';
+
+  $image_url = wp_get_attachment_url($attachment_id);
+
+  $license_key = get_option('_altly_license_key');
+
+  $headers = ['Content-Type' => 'application/json', 'license-key' => $license_key];
+  
+  $images = [
+    [
+      "url" => $image_url,
+      "cms_id" => $attachment_id,
+      "cms_platform" => "WordPress"
+    ]
+  ];
+
+  $jsonBody = json_encode(['images' => $images]);
+
+  $api_response = wp_remote_post($apiUrl, ['headers' => $headers, 'body' => $jsonBody]);
+  if (is_wp_error($api_response)) {
+      return new WP_Error('api_error', $api_response->get_error_message());
+  }
+
+  // error_log('API Response: ' . print_r($api_response, true));
+
+  $api_status = wp_remote_retrieve_response_code($api_response);
+  $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+  if ($api_status != 200) {
+      return new WP_Error('api_failure', 'API call failed', ['status' => $api_status]);
+  }
+
+  return $api_data;
+}
+
+add_action( 'add_attachment', 'analyze_image_on_upload' );
