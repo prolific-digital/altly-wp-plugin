@@ -80,29 +80,13 @@ class MediaDetailsRoute {
     }
 
     // get all media missing alt text
-    $args = array(
-      'post_type'      => 'attachment', // Target attachments only.
-      'post_mime_type' => 'image', // Optionally, target only images.
-      'post_status'    => 'inherit', // Default status for attachments.
-      'posts_per_page' => -1, // Retrieve all matching attachments.
-      'meta_query'     => array(
-          'relation' => 'OR',
-          array(
-              'key'     => '_wp_attachment_image_alt',
-              'compare' => 'NOT EXISTS' // Finds attachments without alt text meta key.
-          ),
-          array(
-              'key'   => '_wp_attachment_image_alt',
-              'value' => '', // Finds attachments where alt text is empty.
-              'compare' => '='
-          )
-      )
-    );
-    
-    $attachments_missing_alt = get_posts($args);
-    
-    foreach ($attachments_missing_alt as $attachment) {
-      $response = $this->helper->queueImages($attachment->ID);
+    $attachments_missing_alt = $this->helper->getImagesMissingAltText();
+
+    for ($i = 0; $i < count($attachments_missing_alt); $i++) {
+      $attachment = $attachments_missing_alt[$i]['id'];
+      // error_log('$attachment->ID: ' . print_r($attachment, true));
+  
+      $response = $this->helper->queueImages($attachment);
     }
 
     return $response;

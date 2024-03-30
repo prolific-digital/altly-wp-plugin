@@ -2,6 +2,8 @@
 
 namespace Altly\AltTextGenerator;
 
+use Ramsey\Uuid\Uuid;
+
 class Helpers {
   
     public function defineMediaArgs() {
@@ -161,14 +163,30 @@ class Helpers {
         $apiUrl = 'https://api.altly.io/v1/batch/queue';
 
         $headers = $this->prepareHeaders();
+        $processing_id = '';
+
+        $altly_processing_id = get_post_meta($attachment_id, 'altly_processing_id', true);
+
+        // check if attachment already has altly_processing_id
+        if ($altly_processing_id !== '' && $altly_processing_id !== null) {
+          $processing_id = $altly_processing_id;
+        } else {
+          // generate uuid and update image metadata
+          $processing_id = Uuid::uuid4()->toString();
+          update_post_meta($attachment_id, 'altly_processing_id', sanitize_text_field($processing_id));
+          update_post_meta($attachment_id, 'altly_processing_status', 'pending');
+        }
+
+        // error_log('Altly Processing ID: ' . print_r($processing_id, true));
 
         $image_url = wp_get_attachment_url($attachment_id);
   
         $images = [
           [
             "url" => $image_url,
-            "cms_id" => $attachment_id,
-            "cms_platform" => "WordPress"
+            "attachment_id" => $attachment_id,
+            'processing_id' => $processing_id,
+            "cms_platform" => "Platform"
           ]
         ];
       

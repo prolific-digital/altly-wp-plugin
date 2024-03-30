@@ -11,6 +11,8 @@ Author: Prolific Digital
 
 require_once __DIR__ . '/vendor/autoload.php';
 
+use Ramsey\Uuid\Uuid;
+
 $license_key_route = new Altly\AltTextGenerator\LicenseRoute();
 $media_details = new Altly\AltTextGenerator\MediaDetailsRoute();
 $user_route = new Altly\AltTextGenerator\UserRoute();
@@ -60,20 +62,6 @@ function add_prolific_tools_submenu() {
 }
 
 add_action('admin_menu', 'add_prolific_tools_submenu');
-
-// function enqueue_vite_hmr_client() {
-//   echo '
-//   <script type="module">
-//     import RefreshRuntime from "http://localhost:3001/@react-refresh"
-//     RefreshRuntime.injectIntoGlobalHook(window)
-//     window.$RefreshReg$ = () => {}
-//     window.$RefreshSig$ = () => (type) => type
-//     window.__vite_plugin_react_preamble_installed__ = true
-// </script>
-//   <script type="module" src="http://localhost:3001/@vite/client"></script>';
-// }
-
-// add_action('admin_head', 'enqueue_vite_hmr_client');
 
 function add_settings_script() {
   echo '<script>
@@ -158,14 +146,23 @@ function analyzeImagev2($attachment_id) {
   $license_key = get_option('_altly_license_key');
 
   $headers = ['Content-Type' => 'application/json', 'license-key' => $license_key];
+
+  $processing_id = Uuid::uuid4()->toString();
+  update_post_meta($attachment_id, 'altly_processing_id', sanitize_text_field($processing_id));
+  update_post_meta($attachment_id, 'altly_processing_status', 'pending');
+
+  // error_log('pid: ' . print_r(get_post_meta($attachment_id, 'uuid', true), true));
   
   $images = [
     [
       "url" => $image_url,
-      "cms_id" => $attachment_id,
-      "cms_platform" => "WordPress"
+      "attachment_id" => $attachment_id,
+      'processing_id' => $processing_id,
+      "cms_platform" => "Platform"
     ]
   ];
+
+  // error_log('API Response: ' . print_r($images, true));
 
   $jsonBody = json_encode(['images' => $images]);
 
