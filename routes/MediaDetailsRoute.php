@@ -20,7 +20,7 @@ class MediaDetailsRoute {
   // Registers a REST route for retrieving media details.
   public function register_caption_retrieval() {
     // Define a new route in the WordPress REST API namespace 'altly/v1' with the endpoint '/get-media-details'.
-    register_rest_route('altly/v1', '/retrieve_caption', array(
+    register_rest_route('altly/v1', '/process-response', array(
       'methods' => 'POST', // Specify that this endpoint responds to HTTP GET requests.
       'callback' => array($this, 'handle_incoming_caption'), // Callback function to process the request.
       'permission_callback' => '__return_true', // Permission callback to control access; here, it allows all requests.
@@ -95,17 +95,23 @@ class MediaDetailsRoute {
   public function handle_incoming_caption($request) {
     $data = $request->get_json_params(); // get the images data
     $headers = $request->get_headers(); // get headers
-    $license_key = $headers['license_key'][0]; // extract license-key from headers
 
-    $isLicenseKeyValid = $this->helper->checkLicenseKey($license_key); // check if license key is valid
-
-    if ($isLicenseKeyValid) {
       // if license key matches
-      $images_missing_alt_text_arr = $this->helper->getImagesMissingAltText(); // retrieve all missing alt text from the wordpress media library
-      $this->helper->addAltTextToImage($data, $images_missing_alt_text_arr);
-    }
+      // $images_missing_alt_text_arr = $this->helper->getImagesMissingAltText(); // retrieve all missing alt text from the wordpress media library
+      // $this->helper->addAltTextToImage($data, $images_missing_alt_text_arr);
 
-    return new \WP_REST_Response('Success', 200);
+      // Validate if image exists
+
+      // Validate if processing_id matches
+
+      // Validate if alt_text is missing
+
+      // If the above are true, update alt_text, status & timestamp
+
+      // Return a result
+
+
+    return new \WP_REST_Response('success', 200);
 
   }
 

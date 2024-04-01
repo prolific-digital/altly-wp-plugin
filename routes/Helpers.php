@@ -186,7 +186,7 @@ class Helpers {
             "url" => $image_url,
             "attachment_id" => $attachment_id,
             'processing_id' => $processing_id,
-            "cms_platform" => "Platform"
+            "platform" => "Platform"
           ]
         ];
       
