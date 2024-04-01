@@ -128,37 +128,6 @@ class MediaDetailsRoute {
       }
     }
 
-    // for ($i = 0; $i < count($data['data']); $i++) {
-    //   $attachment_id = $data['data'][$i]['cms']['platform_id']; // platform_id might eventually change
-    //   $processing_id = $data['data'][$i]['cms']['processing_id']; // processing_id might eventually change
-    //   $timestamp = $data['data'][$i]['cms']['timestamp']; // processing_id might eventually change
-    //   $generated_alt_text = $data['data'][$i]['metadata']['alt_text']; // processing_id might eventually change
-    //   $attachment = get_post($attachment_id);
-      
-    //   // Validate if image exists
-    //   if ($attachment && $attachment->post_type == 'attachment') {
-    //     // Validate if processing_id matches
-    //     $attachment_processing_id = get_post_meta($attachment_id, 'altly_processing_id', true);
-    //     error_log('attachment_processing_id: ' . print_r($attachment_processing_id, true));
-  
-    //     if ($processing_id === $attachment_processing_id) {
-    //       // Validate if alt_text is missing
-    //       $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
-    //       error_log('alt_text: ' . print_r($alt_text, true));
-    //       error_log('generated_alt_text: ' . print_r($generated_alt_text, true));
-  
-    //       if (empty($alt_text)) {
-    //         update_post_meta($attachment_id, '_wp_attachment_image_alt', $generated_alt_text);
-    //         update_post_meta($attachment_id, 'altly_processing_timestamp', $timestamp);
-    //         update_post_meta($attachment_id, 'altly_processing_status', 'processed');
-
-    //         // return a result
-    //       }
-    //     }
-    //   }
-    // }
-
-
     return new \WP_REST_Response('success', 200);
 
   }
