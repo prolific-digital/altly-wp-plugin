@@ -180,10 +180,13 @@ class Helpers {
         // error_log('Altly Processing ID: ' . print_r($processing_id, true));
 
         $image_url = wp_get_attachment_url($attachment_id);
+
+        $api_url = home_url() . '/wp-json/altly/v1/process-response';
   
         $images = [
           [
             "url" => $image_url,
+            "full_api_url" => $api_url, // this might change
             "attachment_id" => $attachment_id,
             'processing_id' => $processing_id,
             "platform" => "Platform"

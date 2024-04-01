@@ -94,21 +94,69 @@ class MediaDetailsRoute {
 
   public function handle_incoming_caption($request) {
     $data = $request->get_json_params(); // get the images data
-    $headers = $request->get_headers(); // get headers
 
-      // if license key matches
-      // $images_missing_alt_text_arr = $this->helper->getImagesMissingAltText(); // retrieve all missing alt text from the wordpress media library
-      // $this->helper->addAltTextToImage($data, $images_missing_alt_text_arr);
+    if (isset($data['data']) && is_array($data['data'])) {
+      foreach ($data['data'] as $item) {
+        $cmsData = $item['cms'] ?? null; // Using null coalescing operator to ensure $cmsData is not null even if 'cms' key is missing
+        if ($cmsData) {
+          $attachment_id = $cmsData['platform_id']; // Assuming 'platform_id' exists
+          $processing_id = $cmsData['processing_id']; // Assuming 'processing_id' exists
+          $timestamp = $cmsData['timestamp']; // Assuming 'timestamp' exists
+          $generated_alt_text = $item['metadata']['alt_text'] ?? ''; // Assuming 'alt_text' exists and using null coalescing operator
 
-      // Validate if image exists
+          $attachment = get_post($attachment_id);
 
-      // Validate if processing_id matches
+          // Validate if image exists and is an attachment
+          if ($attachment && $attachment->post_type === 'attachment') {
+            $attachment_processing_id = get_post_meta($attachment_id, 'altly_processing_id', true);
 
-      // Validate if alt_text is missing
+            // Validate if processing_id matches
+            if ($processing_id === $attachment_processing_id) {
+              $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
 
-      // If the above are true, update alt_text, status & timestamp
+              // Validate if alt_text is missing
+              if (empty($alt_text)) {
+                update_post_meta($attachment_id, '_wp_attachment_image_alt', $generated_alt_text);
+                update_post_meta($attachment_id, 'altly_processing_timestamp', $timestamp);
+                update_post_meta($attachment_id, 'altly_processing_status', 'processed');
 
-      // Return a result
+                // Return a result or perform additional actions
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // for ($i = 0; $i < count($data['data']); $i++) {
+    //   $attachment_id = $data['data'][$i]['cms']['platform_id']; // platform_id might eventually change
+    //   $processing_id = $data['data'][$i]['cms']['processing_id']; // processing_id might eventually change
+    //   $timestamp = $data['data'][$i]['cms']['timestamp']; // processing_id might eventually change
+    //   $generated_alt_text = $data['data'][$i]['metadata']['alt_text']; // processing_id might eventually change
+    //   $attachment = get_post($attachment_id);
+      
+    //   // Validate if image exists
+    //   if ($attachment && $attachment->post_type == 'attachment') {
+    //     // Validate if processing_id matches
+    //     $attachment_processing_id = get_post_meta($attachment_id, 'altly_processing_id', true);
+    //     error_log('attachment_processing_id: ' . print_r($attachment_processing_id, true));
+  
+    //     if ($processing_id === $attachment_processing_id) {
+    //       // Validate if alt_text is missing
+    //       $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+    //       error_log('alt_text: ' . print_r($alt_text, true));
+    //       error_log('generated_alt_text: ' . print_r($generated_alt_text, true));
+  
+    //       if (empty($alt_text)) {
+    //         update_post_meta($attachment_id, '_wp_attachment_image_alt', $generated_alt_text);
+    //         update_post_meta($attachment_id, 'altly_processing_timestamp', $timestamp);
+    //         update_post_meta($attachment_id, 'altly_processing_status', 'processed');
+
+    //         // return a result
+    //       }
+    //     }
+    //   }
+    // }
 
 
     return new \WP_REST_Response('success', 200);
@@ -116,3 +164,6 @@ class MediaDetailsRoute {
   }
 
 }
+
+
+// error_log('API Response: ' . print_r($alt_text, true));

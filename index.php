@@ -153,14 +153,16 @@ function analyzeImagev2($attachment_id) {
 
   $processing_id = Uuid::uuid4()->toString();
   update_post_meta($attachment_id, 'altly_processing_id', sanitize_text_field($processing_id));
+
+  $api_url = home_url() . '/wp-json/altly/v1/process-response';
   
   $images = [
     [
-      // "url" => $image_url,
-      "url" => 'https://elegance-living.nyc3.digitaloceanspaces.com/app/uploads/2024/03/29195654/product-003.jpg',
+      "url" => $image_url,
+      "full_api_url" => $api_url, // this might change
       "attachment_id" => $attachment_id,
       'processing_id' => $processing_id,
-      "cms_platform" => "Platform"
+      "platform" => "Platform"
     ]
   ];
   
