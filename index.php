@@ -34,7 +34,7 @@ function enqueue_ai_alt_text_script() {
       'altly', // Unique handle
       plugin_dir_url(__FILE__) . '/app/dist/assets/index.js', // Source URL
       array(), // Dependencies (if any)
-      '4', // Version
+      '3', // Version
       true // Load script in the footer
     );
 
@@ -43,7 +43,7 @@ function enqueue_ai_alt_text_script() {
       'altly', // Unique handle
       plugin_dir_url(__FILE__) . '/app/dist/assets/index.css', // Source URL
       array(), // Dependencies (if any)
-      '4' // Version
+      '3' // Version
     );
   }
 }
@@ -131,14 +131,12 @@ function analyze_image_on_upload( $attachment_id ) {
   // send a request to altly to analyze the image
   $results = analyzeImagev2($attachment_id);
 
-  error_log('Results: ' . print_r($results, true));
-
-  // if (!is_wp_error($results)) {
-  //   // store the response back to the image
-  //   update_post_meta($attachment_id, '_wp_attachment_image_alt', $results['data'][0]['metadata']['alt_text']);
-  //   // update_post_meta($attachment_id, 'altly_processing_timestamp', $timestamp);
-  //   // update_post_meta($attachment_id, 'altly_processing_status', 'processed');
-  // }
+  if (!is_wp_error($results)) {
+    // store the response back to the image
+    update_post_meta($attachment_id, '_wp_attachment_image_alt', $results['data'][0]['metadata']['alt_text']);
+    update_post_meta($attachment_id, 'altly_processing_timestamp', $results['data'][0]['platform']['timestamp']);
+    update_post_meta($attachment_id, 'altly_processing_status', 'processed');
+  }
   
 }
 
@@ -149,7 +147,7 @@ function analyzeImagev2($attachment_id) {
 
   $license_key = get_option('_altly_license_key');
 
-  $headers = ['Content-Type' => 'application/json', 'license-key' => $license_key];
+  $headers = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer '. $license_key];
 
   $processing_id = Uuid::uuid4()->toString();
   update_post_meta($attachment_id, 'altly_processing_id', sanitize_text_field($processing_id));
@@ -159,10 +157,10 @@ function analyzeImagev2($attachment_id) {
   $images = [
     [
       "url" => $image_url,
-      "full_api_url" => $api_url, // this might change
-      "attachment_id" => $attachment_id,
-      'processing_id' => $processing_id,
-      "platform" => "Platform"
+      "api_endpoint" => $api_url, // this might change
+      "asset_id" => $attachment_id,
+      'transaction_id' => $processing_id,
+      "platform" => "WordPress"
     ]
   ];
   
@@ -172,8 +170,6 @@ function analyzeImagev2($attachment_id) {
   if (is_wp_error($api_response)) {
       return new WP_Error('api_error', $api_response->get_error_message());
   }
-
-  error_log('API Response: ' . print_r($api_response, true));
 
   $api_status = wp_remote_retrieve_response_code($api_response);
   $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
@@ -185,3 +181,5 @@ function analyzeImagev2($attachment_id) {
 }
 
 add_action( 'add_attachment', 'analyze_image_on_upload' );
+
+// error_log('API Response: ' . print_r($api_response, true));

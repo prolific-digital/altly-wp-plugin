@@ -20,7 +20,7 @@ class Helpers {
 
     public function prepareHeaders() {
         $license_key = get_option('_altly_license_key');
-        return ['Content-Type' => 'application/json', 'license-key' => $license_key];
+        return ['Content-Type' => 'application/json', 'Authorization' => 'Bearer '. $license_key];
     }
 
     public function getUserCredits() {
@@ -177,8 +177,6 @@ class Helpers {
           update_post_meta($attachment_id, 'altly_processing_status', 'pending');
         }
 
-        // error_log('Altly Processing ID: ' . print_r($processing_id, true));
-
         $image_url = wp_get_attachment_url($attachment_id);
 
         $api_url = home_url() . '/wp-json/altly/v1/process-response';
@@ -186,12 +184,14 @@ class Helpers {
         $images = [
           [
             "url" => $image_url,
-            "full_api_url" => $api_url, // this might change
-            "attachment_id" => $attachment_id,
-            'processing_id' => $processing_id,
-            "platform" => "Platform"
+            "api_endpoint" => $api_url, // this might change
+            "asset_id" => $attachment_id,
+            'transaction_id' => $processing_id,
+            "platform_name" => "WordPress"
           ]
         ];
+
+        error_log('Image: ' . print_r($images, true));
       
         $jsonBody = json_encode(['images' => $images]);
 
@@ -243,3 +243,6 @@ class Helpers {
         return $media_details;
     }
 }
+
+
+// error_log('Altly Processing ID: ' . print_r($processing_id, true));

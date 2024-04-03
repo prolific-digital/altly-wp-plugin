@@ -82,45 +82,51 @@ class MediaDetailsRoute {
     // get all media missing alt text
     $attachments_missing_alt = $this->helper->getImagesMissingAltText();
 
-    for ($i = 0; $i < count($attachments_missing_alt); $i++) {
-      $attachment = $attachments_missing_alt[$i]['id'];
-      // error_log('$attachment->ID: ' . print_r($attachment, true));
-  
-      $response = $this->helper->queueImages($attachment);
+    foreach ($attachments_missing_alt as $attachment) {
+      $response = $this->helper->queueImages($attachment['id']);
     }
 
     return $response;
   }
 
   public function handle_incoming_caption($request) {
-    $data = $request->get_json_params(); // get the images data
+    $data = $request->get_json_params(); // Get the data from the request
 
+    error_log('API Response: ' . print_r($data, true));
+
+    // Check if 'data' key exists and it's an array
     if (isset($data['data']) && is_array($data['data'])) {
-      foreach ($data['data'] as $item) {
-        $cmsData = $item['cms'] ?? null; // Using null coalescing operator to ensure $cmsData is not null even if 'cms' key is missing
-        if ($cmsData) {
-          $attachment_id = $cmsData['platform_id']; // Assuming 'platform_id' exists
-          $processing_id = $cmsData['processing_id']; // Assuming 'processing_id' exists
-          $timestamp = $cmsData['timestamp']; // Assuming 'timestamp' exists
-          $generated_alt_text = $item['metadata']['alt_text'] ?? ''; // Assuming 'alt_text' exists and using null coalescing operator
+      // Directly access 'metadata' and 'platform' without iterating
+      $meta_data = $data['data']['metadata'] ?? null; // Using null coalescing operator
+      $platform = $data['data']['platform'] ?? null; // Using null coalescing operator
 
-          $attachment = get_post($attachment_id);
+      if ($meta_data && $platform) {
+        $attachment_id = $platform['asset_id'] ?? null; // Check for 'asset_id'
+        $processing_id = $platform['transaction_id'] ?? null; // Check for 'transaction_id'
+        // The 'timestamp' key doesn't seem to be provided in your data structure
+        // $timestamp = $platform['timestamp'] ?? null; // Assuming 'timestamp' exists
+
+        $generated_alt_text = $meta_data['alt_text'] ?? ''; // Check for 'alt_text'
+
+        if ($attachment_id && $processing_id) {
+            $attachment = get_post($attachment_id);
 
           // Validate if image exists and is an attachment
           if ($attachment && $attachment->post_type === 'attachment') {
-            $attachment_processing_id = get_post_meta($attachment_id, 'altly_processing_id', true);
+              $attachment_processing_id = get_post_meta($attachment_id, 'altly_processing_id', true);
 
             // Validate if processing_id matches
             if ($processing_id === $attachment_processing_id) {
-              $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+                $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
 
               // Validate if alt_text is missing
               if (empty($alt_text)) {
-                update_post_meta($attachment_id, '_wp_attachment_image_alt', $generated_alt_text);
-                update_post_meta($attachment_id, 'altly_processing_timestamp', $timestamp);
-                update_post_meta($attachment_id, 'altly_processing_status', 'processed');
+                  update_post_meta($attachment_id, '_wp_attachment_image_alt', $generated_alt_text);
+                  // Assuming you have a way to get the correct timestamp since it's not provided in the data
+                  // update_post_meta($attachment_id, 'altly_processing_timestamp', $timestamp);
+                  update_post_meta($attachment_id, 'altly_processing_status', 'processed');
 
-                // Return a result or perform additional actions
+                  // Return a result or perform additional actions
               }
             }
           }
@@ -129,8 +135,8 @@ class MediaDetailsRoute {
     }
 
     return new \WP_REST_Response('success', 200);
-
   }
+
 
 }
 
