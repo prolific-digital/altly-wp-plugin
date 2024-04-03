@@ -91,7 +91,7 @@ class LicenseRoute {
 
   protected function callExternalApi($license_key) {
     $apiUrl = 'https://api.altly.io/v1/validate/license-key';
-    $headers = ['Content-Type' => 'application/json', 'license-key' => $license_key];
+    $headers = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer '. $license_key];
     $body = json_encode(['license-key' => $license_key]);
 
     return wp_remote_post($apiUrl, [
