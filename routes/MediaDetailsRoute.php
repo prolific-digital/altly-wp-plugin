@@ -79,12 +79,7 @@ class MediaDetailsRoute {
         return new \WP_REST_Response(['error' => 'Invalid request method'], 405);
     }
 
-    // get all media missing alt text
-    $attachments_missing_alt = $this->helper->getImagesMissingAltText();
-
-    foreach ($attachments_missing_alt as $attachment) {
-      $response = $this->helper->queueImages($attachment['id']);
-    }
+    $response = $this->helper->queueImages($this->helper->getImagesMissingAltText());
 
     return $response;
   }
