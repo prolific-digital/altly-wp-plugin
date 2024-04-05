@@ -40,77 +40,77 @@ export default function HeadingDashboard({ data }) {
     .catch(error => console.error('Error:', error));
   };
 
-  const processImagesv1 = async (images) => {
-    const apiKey = await getLicenseKey();
+  // const processImagesv1 = async (images) => {
+  //   const apiKey = await getLicenseKey();
     
-    images.forEach(image => {
-      const images = [
-        {
-          url: image.url, // Assuming there's a variable imageUrl that holds the image URL
-          api_endpoint: image.api_endpoint, // Assuming there's a variable apiUrl that holds the API endpoint URL
-          asset_id: image.asset_id, // Assuming there's a variable assetId that holds the asset ID
-          transaction_id: image.transaction_id, // Assuming there's a variable processingId that holds the processing ID
-          platform_name: "WordPress"
-        }
-      ];
+  //   images.forEach(image => {
+  //     const images = [
+  //       {
+  //         url: image.url, // Assuming there's a variable imageUrl that holds the image URL
+  //         api_endpoint: image.api_endpoint, // Assuming there's a variable apiUrl that holds the API endpoint URL
+  //         asset_id: image.asset_id, // Assuming there's a variable assetId that holds the asset ID
+  //         transaction_id: image.transaction_id, // Assuming there's a variable processingId that holds the processing ID
+  //         platform_name: "WordPress"
+  //       }
+  //     ];
       
-      const jsonBody = JSON.stringify({ images: images });
+  //     const jsonBody = JSON.stringify({ images: images });
 
-      fetch('https://api.altly.io/v1/batch/queue', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + apiKey,
-        },
+  //     fetch('https://api.altly.io/v1/batch/queue', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'Authorization': 'Bearer ' + apiKey,
+  //       },
         
-        body: jsonBody,
-      })
-      .then(response => response.json())
-      .then(data => console.log('Success:', data))
-      .catch(error => console.error('Error:', error));
-    });
-  };
+  //       body: jsonBody,
+  //     })
+  //     .then(response => response.json())
+  //     .then(data => console.log('Success:', data))
+  //     .catch(error => console.error('Error:', error));
+  //   });
+  // };
 
-  const processImagesv2 = async (images) => {
-    const apiKey = await getLicenseKey();
+  // const processImagesv2 = async (images) => {
+  //   const apiKey = await getLicenseKey();
   
-    // Function to introduce a delay
-    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  //   // Function to introduce a delay
+  //   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   
-    for (const image of images) {
-      const imagesArray = [
-        {
-          url: image.url,
-          api_endpoint: image.api_endpoint,
-          asset_id: image.asset_id,
-          transaction_id: image.transaction_id,
-          platform_name: "WordPress"
-        }
-      ];
+  //   for (const image of images) {
+  //     const imagesArray = [
+  //       {
+  //         url: image.url,
+  //         api_endpoint: image.api_endpoint,
+  //         asset_id: image.asset_id,
+  //         transaction_id: image.transaction_id,
+  //         platform_name: "WordPress"
+  //       }
+  //     ];
   
-      const jsonBody = JSON.stringify({ images: imagesArray });
+  //     const jsonBody = JSON.stringify({ images: imagesArray });
   
-      try {
-        const response = await fetch('https://api.altly.io/v1/batch/queue', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + apiKey,
-          },
-          body: jsonBody,
-        });
+  //     try {
+  //       const response = await fetch('https://api.altly.io/v1/batch/queue', {
+  //         method: 'POST',
+  //         headers: {
+  //           'Content-Type': 'application/json',
+  //           'Authorization': 'Bearer ' + apiKey,
+  //         },
+  //         body: jsonBody,
+  //       });
   
-        const data = await response.json();
-        console.log('Success:', data);
+  //       const data = await response.json();
+  //       // console.log('Success:', data);
   
-        // Introduce a delay before proceeding to the next image
-        // Adjust the delay time as needed (1000ms is 1 second)
-        await delay(50); 
-      } catch (error) {
-        console.error('Error:', error);
-      }
-    }
-  };
+  //       // Introduce a delay before proceeding to the next image
+  //       // Adjust the delay time as needed (1000ms is 1 second)
+  //       await delay(50); 
+  //     } catch (error) {
+  //       console.error('Error:', error);
+  //     }
+  //   }
+  // };
 
   const processImages = async (images, batchSize = 10, delayDuration = 1000) => {
     const apiKey = await getLicenseKey();

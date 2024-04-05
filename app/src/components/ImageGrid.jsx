@@ -65,7 +65,7 @@ export default function ImageGrid({ onDataChange }) {
           url: item.url
         }));
 
-        console.log('All Data:', data);
+        // console.log('All Data:', data);
         // console.log('Missing Alt Text:', itemsWithMissingAltText);
         // we're setting this below so we can send it to the dashboard which 
         // connects and sends it to the HeadingDashboard for bulk generation
