@@ -41,7 +41,7 @@ class MediaDetailsRoute {
   public function register_bulk_generate() {
     // Define a new route in the WordPress REST API for bulk generation with the endpoint '/bulk-generate'.
     register_rest_route('altly/v1', '/bulk-generate', array(
-      'methods' => 'POST', // Specify that this endpoint responds to HTTP POST requests.
+      'methods' => 'GET', // Specify that this endpoint responds to HTTP GET requests.
       'callback' => array($this, 'handle_bulk_generate'), // Callback function to process the request.
       'permission_callback' => '__return_true', // Permission callback to control access; here, it allows all requests.
     ));
@@ -75,11 +75,13 @@ class MediaDetailsRoute {
 
   public function handle_bulk_generate($request) {
 
-    if ('POST' !== $request->get_method()) {
+    if ('GET' !== $request->get_method()) {
         return new \WP_REST_Response(['error' => 'Invalid request method'], 405);
     }
 
     $response = $this->helper->queueImages($this->helper->getImagesMissingAltText());
+
+    error_log('API Response: ' . print_r($response, true));
 
     return $response;
   }

@@ -4,8 +4,7 @@
   "require": {
     "php": ">=8.0",
     "composer/installers": "^1.10",
-    "ramsey/uuid": "^4.7",
-    "guzzlehttp/guzzle": "^7.8"
+    "ramsey/uuid": "^4.7"
   },
   "autoload": {
     "psr-4": {

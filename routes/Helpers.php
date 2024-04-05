@@ -3,8 +3,6 @@
 namespace Altly\AltTextGenerator;
 
 use Ramsey\Uuid\Uuid;
-use GuzzleHttp\Client;
-use GuzzleHttp\Promise\Utils;
 
 class Helpers {
   
@@ -169,50 +167,6 @@ class Helpers {
     return $images_missing_alt_text_arr;
   }
 
-  public function queueImagesOld($attachment_id) {
-      $apiUrl = 'https://api.altly.io/v1/batch/queue';
-
-      $headers = $this->prepareHeaders();
-      $processing_id = '';
-
-      $altly_processing_id = get_post_meta($attachment_id, 'altly_processing_id', true);
-
-      // check if attachment already has altly_processing_id
-      if ($altly_processing_id !== '' && $altly_processing_id !== null) {
-        $processing_id = $altly_processing_id;
-      } else {
-        // generate uuid and update image metadata
-        $processing_id = Uuid::uuid4()->toString();
-        update_post_meta($attachment_id, 'altly_processing_id', sanitize_text_field($processing_id));
-        update_post_meta($attachment_id, 'altly_processing_status', 'pending');
-      }
-
-      $image_url = wp_get_attachment_url($attachment_id);
-
-      $api_url = home_url() . '/wp-json/altly/v1/process-response';
-
-      $images = [
-        [
-          "url" => $image_url,
-          "api_endpoint" => $api_url, // this might change
-          "asset_id" => $attachment_id,
-          'transaction_id' => $processing_id,
-          "platform_name" => "WordPress"
-        ]
-      ];
-
-      error_log('Image: ' . print_r($images, true));
-    
-      $jsonBody = json_encode(['images' => $images]);
-
-      $api_response = wp_remote_post($apiUrl, [
-          'headers' => $headers,
-          'body' => $jsonBody,
-      ]);
-
-      return $this->processApiResponse($api_response);
-  }
-
   /**
    * Retrieves an existing processing ID for an attachment or generates a new one.
    * 
@@ -240,58 +194,27 @@ class Helpers {
     return $processing_id;
   }
 
-  /**
-   * Asynchronously queues images for processing via the Altly API.
-   * 
-   * This function takes an array of attachment IDs, prepares and sends out asynchronous
-   * POST requests to the Altly API for each image to be processed. It then waits for all
-   * requests to complete and processes the responses.
-   *
-   * @param array $attachment_ids An array of attachment IDs to be processed.
-   * @throws \GuzzleHttp\Exception\GuzzleException if there is an error during the HTTP request.
-   * @return array An array of results from the Altly API response processing.
-   */
   public function queueImages($attachment_ids) {
-    $client = new Client();
-    $promises = [];
+    $results = [];
 
     
     foreach ($attachment_ids as $attachment_id) {
       $asset_id = $attachment_id['id'];
-
-      $headers = $this->prepareHeaders();
+      
       $processing_id = $this->getOrCreateProcessingId($asset_id);
 
       $image_url = wp_get_attachment_url($asset_id);
       $api_url = home_url() . '/wp-json/altly/v1/process-response';
 
       $images = [
-        [
           "url" => $image_url,
           "api_endpoint" => $api_url,
           "asset_id" => $asset_id,
           'transaction_id' => $processing_id,
           "platform_name" => "WordPress"
-        ]
       ];
 
-      $jsonBody = json_encode(['images' => $images]);
-
-      // Prepare an asynchronous POST request
-      $promises[] = $client->postAsync('https://api.altly.io/v1/batch/queue', [
-        'headers' => $headers,
-        'body' => $jsonBody,
-      ]);
-    }
-
-    // Wait for all the requests to complete
-    $responses = Utils::unwrap($promises);
-
-    // Optionally, process the responses
-    $results = [];
-    foreach ($responses as $response) {
-      // Process each response
-      $results[] = $this->processApiResponse($response);
+      $results[] = $images;
     }
 
     return $results;
