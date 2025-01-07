@@ -1,4 +1,4 @@
-# Alt Text Generator for WordPress
+# Altly - WordPress Plugin
 
 This WordPress plugin automatically generates alt text for images without alt text in the media library. It uses the Google Vision API and the OpenAI API to generate a grammatically correct description of the image.
 
