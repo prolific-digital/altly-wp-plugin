@@ -4,7 +4,7 @@
 
 /*
 Plugin Name: Altly - Alt Text Generator
-Version: 1.0
+Version: 1.1
 Description: A plugin to generate alt text for images using AI
 Author: Prolific Digital
 */
@@ -18,12 +18,14 @@ $media_details = new Altly\AltTextGenerator\MediaDetailsRoute();
 $user_route = new Altly\AltTextGenerator\UserRoute();
 
 
-function altly_root() {
+function altly_root()
+{
   // Add your settings content here
   echo '<div id="root"></div>';
 }
 
-function enqueue_ai_alt_text_script() {
+function enqueue_ai_alt_text_script()
+{
   $current_screen = get_current_screen();
 
   // Check if the current screen is your plugin's settings page
@@ -50,7 +52,8 @@ function enqueue_ai_alt_text_script() {
 
 add_action('admin_enqueue_scripts', 'enqueue_ai_alt_text_script');
 
-function add_prolific_tools_submenu() {
+function add_prolific_tools_submenu()
+{
   add_submenu_page(
     'upload.php', // Parent menu slug (Tools)
     'Altly', // Page title
@@ -63,7 +66,8 @@ function add_prolific_tools_submenu() {
 
 add_action('admin_menu', 'add_prolific_tools_submenu');
 
-function add_settings_script() {
+function add_settings_script()
+{
   echo '<script>
           var script = document.createElement("script");
           script.src = "http://localhost:3001/src/main.jsx";
@@ -75,7 +79,8 @@ function add_settings_script() {
 // add_action('admin_footer', 'add_settings_script');
 
 
-function disable_rest_authentication($access) {
+function disable_rest_authentication($access)
+{
   return true; // Return true to disable authentication
 }
 add_filter('rest_authentication_errors', 'disable_rest_authentication');
@@ -83,7 +88,8 @@ add_filter('rest_authentication_errors', 'disable_rest_authentication');
 
 
 
-function is_vite_running() {
+function is_vite_running()
+{
   // Replace this with the actual URL of your Vite development server
   $vite_server_url = 'http://localhost:3001';
 
@@ -96,7 +102,8 @@ function is_vite_running() {
 
 
 
-function enqueue_hmr_client() {
+function enqueue_hmr_client()
+{
   if (is_vite_running()) {
 
     echo '
@@ -115,7 +122,8 @@ function enqueue_hmr_client() {
 }
 
 
-function add_script() {
+function add_script()
+{
   if (is_vite_running()) {
     echo '<script type="module" src="http://localhost:3001/src/main.jsx"></script>';
   }
@@ -126,7 +134,8 @@ add_action('admin_head', 'enqueue_hmr_client');
 add_action('admin_footer', 'add_script');
 
 
-function analyze_image_on_upload( $attachment_id ) {
+function analyze_image_on_upload($attachment_id)
+{
 
   // send a request to altly to analyze the image
   $results = analyzeImagev2($attachment_id);
@@ -137,23 +146,23 @@ function analyze_image_on_upload( $attachment_id ) {
     update_post_meta($attachment_id, 'altly_processing_timestamp', $results['data'][0]['platform']['timestamp']);
     update_post_meta($attachment_id, 'altly_processing_status', 'processed');
   }
-  
 }
 
-function analyzeImagev2($attachment_id) {
+function analyzeImagev2($attachment_id)
+{
   $apiUrl = 'https://api.altly.io/v1/analyze/image';
 
   $image_url = wp_get_attachment_url($attachment_id);
 
   $license_key = get_option('_altly_license_key');
 
-  $headers = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer '. $license_key];
+  $headers = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $license_key];
 
   $processing_id = Uuid::uuid4()->toString();
   update_post_meta($attachment_id, 'altly_processing_id', sanitize_text_field($processing_id));
 
   $api_url = home_url() . '/wp-json/altly/v1/process-response';
-  
+
   $images = [
     [
       "url" => $image_url,
@@ -163,23 +172,23 @@ function analyzeImagev2($attachment_id) {
       "platform" => "WordPress"
     ]
   ];
-  
+
   $jsonBody = json_encode(['images' => $images]);
 
   $api_response = wp_remote_post($apiUrl, ['headers' => $headers, 'body' => $jsonBody]);
   if (is_wp_error($api_response)) {
-      return new WP_Error('api_error', $api_response->get_error_message());
+    return new WP_Error('api_error', $api_response->get_error_message());
   }
 
   $api_status = wp_remote_retrieve_response_code($api_response);
   $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
   if ($api_status != 200) {
-      return new WP_Error('api_failure', 'API call failed', ['status' => $api_status]);
+    return new WP_Error('api_failure', 'API call failed', ['status' => $api_status]);
   }
 
   return $api_data;
 }
 
-add_action( 'add_attachment', 'analyze_image_on_upload' );
+add_action('add_attachment', 'analyze_image_on_upload');
 
 // error_log('API Response: ' . print_r($api_response, true));

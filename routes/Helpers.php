@@ -4,9 +4,18 @@ namespace Altly\AltTextGenerator;
 
 use Ramsey\Uuid\Uuid;
 
-class Helpers {
-  
-  public function defineMediaArgs() {
+class Helpers
+{
+
+  private $license_key;
+
+  public function __construct()
+  {
+    $this->license_key = get_option('_altly_license_key');
+  }
+
+  public function defineMediaArgs()
+  {
     // Set up query arguments to retrieve media attachments of type 'image/jpeg' and 'image/png'.
     $args = array(
       'post_type' => 'attachment', // Target media attachments.
@@ -26,76 +35,82 @@ class Helpers {
    *
    * @return array An associative array of header names and values.
    */
-  public function prepareHeaders() {
-      $license_key = get_option('_altly_license_key');
-      return ['Content-Type' => 'application/json', 'Authorization' => 'Bearer '. $license_key];
+  public function prepareHeaders()
+  {
+    return ['Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $this->license_key];
   }
 
-  public function getUserCredits() {
-      return get_option('_altly_license_key_user_credits', 0);  // Default to 0 if not set
+  public function getUserCredits()
+  {
+    $user_data = $this->callExternalApi($this->license_key);
+    return json_decode($user_data)['data']['credits'];
   }
 
-  public function analyzeImage($apiBaseUrl, $image_url) {
-      $apiUrl = $apiBaseUrl . '/analyze/image';
+  public function analyzeImage($apiBaseUrl, $image_url)
+  {
+    $apiUrl = $apiBaseUrl . '/analyze/image';
 
-      error_log('apiUrl: ' . print_r($apiUrl, true));
+    error_log('apiUrl: ' . print_r($apiUrl, true));
 
-      $headers = $this->prepareHeaders();
+    $headers = $this->prepareHeaders();
 
-      $attachment_id = attachment_url_to_postid($image_url);
-      
-      $images = [
-        [
-            "name" => "Bourbon Bottle",
-            "url" => $image_url,
-            "cms_id" => "cms_id_1",
-            "cms_platform" => "cms_platform_1"
-        ]
+    $attachment_id = attachment_url_to_postid($image_url);
+
+    $images = [
+      [
+        "name" => "Bourbon Bottle",
+        "url" => $image_url,
+        "cms_id" => "cms_id_1",
+        "cms_platform" => "cms_platform_1"
+      ]
     ];
 
     $jsonBody = json_encode(['images' => $images]);
-      
 
-      // $body = json_encode(['images' => [$image_url]]);
 
-      error_log('Body: ' . print_r($jsonBody, true));
+    // $body = json_encode(['images' => [$image_url]]);
 
-      $api_response = wp_remote_post($apiUrl, ['headers' => $headers, 'body' => $jsonBody]);
-      if (is_wp_error($api_response)) {
-          return new WP_Error('api_error', $api_response->get_error_message());
+    error_log('Body: ' . print_r($jsonBody, true));
+
+    $api_response = wp_remote_post($apiUrl, ['headers' => $headers, 'body' => $jsonBody]);
+    if (is_wp_error($api_response)) {
+      return new WP_Error('api_error', $api_response->get_error_message());
+    }
+
+    error_log('API Response: ' . print_r($api_response, true));
+
+    // $api_status = wp_remote_retrieve_response_code($api_response);
+    // $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+    // if ($api_status != 200) {
+    //     return new WP_Error('api_failure', 'API call failed', ['status' => $api_status]);
+    // }
+
+    // return $api_data;
+  }
+
+  public function updateImageAltText($attachment_id, $imageData)
+  {
+    update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($imageData['caption']));
+    update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($imageData['confidence']));
+  }
+
+  public function updateUserCredits($apiBaseUrl)
+  {
+    $apiUrl = $apiBaseUrl . '/validate/license-key';
+    $headers = $this->prepareHeaders();
+    $body = json_encode(['license-key' => get_option('_altly_license_key')]);
+
+    $api_response = wp_remote_post($apiUrl, ['headers' => $headers, 'body' => $body]);
+    if (!is_wp_error($api_response) && wp_remote_retrieve_response_code($api_response) == 200) {
+      $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+      if (isset($api_data['data']['id']) && !empty($api_data['data']['id'])) {
+        update_option('_altly_license_key_user_credits', $api_data['data']['credits']);
       }
-
-      error_log('API Response: ' . print_r($api_response, true));
-
-      // $api_status = wp_remote_retrieve_response_code($api_response);
-      // $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
-      // if ($api_status != 200) {
-      //     return new WP_Error('api_failure', 'API call failed', ['status' => $api_status]);
-      // }
-
-      // return $api_data;
+    }
   }
 
-  public function updateImageAltText($attachment_id, $imageData) {
-      update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($imageData['caption']));
-      update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($imageData['confidence']));
-  }
-
-  public function updateUserCredits($apiBaseUrl) {
-      $apiUrl = $apiBaseUrl . '/validate/license-key';
-      $headers = $this->prepareHeaders();
-      $body = json_encode(['license-key' => get_option('_altly_license_key')]);
-
-      $api_response = wp_remote_post($apiUrl, ['headers' => $headers, 'body' => $body]);
-      if (!is_wp_error($api_response) && wp_remote_retrieve_response_code($api_response) == 200) {
-          $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
-          if (isset($api_data['data']['id']) && !empty($api_data['data']['id'])) {
-              update_option('_altly_license_key_user_credits', $api_data['data']['credits']);
-          }
-      }
-  }
-
-  public function addAltTextToImage($data, $images_missing_alt_text_arr) {
+  public function addAltTextToImage($data, $images_missing_alt_text_arr)
+  {
     if (count($images_missing_alt_text_arr) > 0) {
       // loop over the data and get matching image IDs
       // Extract IDs from $images_missing_alt_text_arr
@@ -104,18 +119,19 @@ class Helpers {
       foreach ($data['images'] as $item) {
         $attachment_id = $item['cms_id'];
         if (in_array($attachment_id, $missingAltTextAttachmentIDs)) {
-            $altText = $item['alt_text'];
-            // $confidenceScore = $item['confidence'];
+          $altText = $item['alt_text'];
+          // $confidenceScore = $item['confidence'];
 
-            // update alt text for all images missing alts
-            update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($altText));
-            // update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($confidenceScore));
+          // update alt text for all images missing alts
+          update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($altText));
+          // update_post_meta($attachment_id, 'confidence_score', sanitize_text_field($confidenceScore));
         }
       }
     }
   }
 
-  public function checkLicenseKey($license_key) {
+  public function checkLicenseKey($license_key)
+  {
     if ($license_key === get_option('_altly_license_key')) {
       // error_log('Valid license key: ' . print_r(get_option('_altly_license_key'), true));
       return true;
@@ -124,7 +140,8 @@ class Helpers {
     return false;
   }
 
-  public function getImagesMissingAltText() {
+  public function getImagesMissingAltText()
+  {
 
     // Set up query arguments to retrieve media attachments of type 'image/jpeg' and 'image/png'.
     $args = $this->defineMediaArgs();
@@ -176,12 +193,13 @@ class Helpers {
    * @param int $attachment_id The ID of the attachment to retrieve or generate a processing ID for.
    * @return string The processing ID associated with the attachment.
    */
-  public function getOrCreateProcessingId($asset_id) {
+  public function getOrCreateProcessingId($asset_id)
+  {
     $processing_id = get_post_meta($asset_id, 'altly_processing_id', true);
 
     // Check if attachment already has an altly_processing_id
     if (!empty($processing_id)) {
-        return $processing_id;
+      return $processing_id;
     }
 
     // Generate a new UUID as the processing ID
@@ -194,24 +212,25 @@ class Helpers {
     return $processing_id;
   }
 
-  public function queueImages($attachment_ids) {
+  public function queueImages($attachment_ids)
+  {
     $results = [];
 
-    
+
     foreach ($attachment_ids as $attachment_id) {
       $asset_id = $attachment_id['id'];
-      
+
       $processing_id = $this->getOrCreateProcessingId($asset_id);
 
       $image_url = wp_get_attachment_url($asset_id);
       $api_url = home_url() . '/wp-json/altly/v1/process-response';
 
       $images = [
-          "url" => $image_url,
-          "api_endpoint" => $api_url,
-          "asset_id" => $asset_id,
-          'transaction_id' => $processing_id,
-          "platform_name" => "WordPress"
+        "url" => $image_url,
+        "api_endpoint" => $api_url,
+        "asset_id" => $asset_id,
+        'transaction_id' => $processing_id,
+        "platform_name" => "WordPress"
       ];
 
       $results[] = $images;
@@ -229,44 +248,58 @@ class Helpers {
    * @param \Psr\Http\Message\ResponseInterface $response The response received from the Altly API for a single image.
    * @return mixed The processed result from the API response, format could vary based on response content.
    */
-  public function processApiResponse($api_response) {
-      if (is_wp_error($api_response)) {
-          $error_message = $api_response->get_error_message();
-          error_log('API Request Error: ' . $error_message);
-          return new \WP_REST_Response(['error' => $error_message], 500);
-      }
+  public function processApiResponse($api_response)
+  {
+    if (is_wp_error($api_response)) {
+      $error_message = $api_response->get_error_message();
+      error_log('API Request Error: ' . $error_message);
+      return new \WP_REST_Response(['error' => $error_message], 500);
+    }
 
-      $api_status = wp_remote_retrieve_response_code($api_response);
-      $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+    $api_status = wp_remote_retrieve_response_code($api_response);
+    $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
 
-      error_log('API Response: ' . print_r($api_data, true));
+    error_log('API Response: ' . print_r($api_data, true));
 
-      if ($api_status == 200) {
-          return new \WP_REST_Response(['message' => 'Images queued successfully'] + $api_data, 200);
-      }
+    if ($api_status == 200) {
+      return new \WP_REST_Response(['message' => 'Images queued successfully'] + $api_data, 200);
+    }
 
-      return new \WP_REST_Response($api_data ?: ['error' => 'Invalid API response'], $api_status ?: 500);
+    return new \WP_REST_Response($api_data ?: ['error' => 'Invalid API response'], $api_status ?: 500);
   }
 
-  public function compileMediaDetails($media_query) {
-      $media_details = [];
-      if ($media_query->have_posts()) {
-          while ($media_query->have_posts()) {
-              $media_query->the_post();
-              $attachment_id = get_the_ID();
-      
-              $media_details[] = [
-                  'id' => $attachment_id,
-                  'alt_text' => esc_attr(get_post_meta($attachment_id, '_wp_attachment_image_alt', true)),
-                  'confidence_score' => esc_attr(get_post_meta($attachment_id, 'confidence_score', true)),
-                  'url' => esc_url(wp_get_attachment_url($attachment_id)),
-                  'file_path' => esc_url(get_attached_file($attachment_id)),
-                  'metadata' => wp_get_attachment_metadata($attachment_id),
-              ];
-          }
+  public function compileMediaDetails($media_query)
+  {
+    $media_details = [];
+    if ($media_query->have_posts()) {
+      while ($media_query->have_posts()) {
+        $media_query->the_post();
+        $attachment_id = get_the_ID();
+
+        $media_details[] = [
+          'id' => $attachment_id,
+          'alt_text' => esc_attr(get_post_meta($attachment_id, '_wp_attachment_image_alt', true)),
+          'confidence_score' => esc_attr(get_post_meta($attachment_id, 'confidence_score', true)),
+          'url' => esc_url(wp_get_attachment_url($attachment_id)),
+          'file_path' => esc_url(get_attached_file($attachment_id)),
+          'metadata' => wp_get_attachment_metadata($attachment_id),
+        ];
       }
-  
-      return $media_details;
+    }
+
+    return $media_details;
+  }
+
+  public function callExternalApi($license_key)
+  {
+    $apiUrl = 'https://api.altly.io/v1/validate/license-key';
+    $headers = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $license_key];
+    $body = json_encode(['license-key' => $license_key]);
+
+    return wp_remote_post($apiUrl, [
+      'headers' => $headers,
+      'body'    => $body,
+    ]);
   }
 }
 

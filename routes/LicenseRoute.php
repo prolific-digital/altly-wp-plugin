@@ -2,13 +2,19 @@
 
 namespace Altly\AltTextGenerator;
 
-class LicenseRoute {
-  public function __construct() {
+class LicenseRoute
+{
+  private $helper;
+
+  public function __construct()
+  {
     add_action('rest_api_init', array($this, 'register_license_key_route'));
     add_action('rest_api_init', array($this, 'register_remove_license_key_route'));
+    $this->helper = new \Altly\AltTextGenerator\Helpers();
   }
 
-  public function register_license_key_route() {
+  public function register_license_key_route()
+  {
     register_rest_route('altly/v1', 'license-key', array(
       'methods' => 'GET, POST', // Allow both GET and POST requests
       'callback' => array($this, 'handle_license_key'),
@@ -16,7 +22,8 @@ class LicenseRoute {
     ));
   }
 
-  public function register_remove_license_key_route() {
+  public function register_remove_license_key_route()
+  {
     register_rest_route('altly/v1', 'remove-license-key', array(
       'methods' => 'GET, POST', // Allow both GET and POST requests
       'callback' => array($this, 'handle_remove_license_key'),
@@ -24,7 +31,8 @@ class LicenseRoute {
     ));
   }
 
-  public function handle_license_key($request) {
+  public function handle_license_key($request)
+  {
     $method = $request->get_method();
 
     if ('GET' === $method) {
@@ -37,18 +45,22 @@ class LicenseRoute {
     return new \WP_REST_Response(['error' => 'Method Not Allowed'], 405);
   }
 
-  public function handle_remove_license_key() {
+  public function handle_remove_license_key()
+  {
     // Delete '_altly_license_key' option
-    delete_option( '_altly_license_key' );
+    delete_option('_altly_license_key');
 
     // Delete '_altly_license_key_user_id' option
-    delete_option( '_altly_license_key_user_id' );
+    delete_option('_altly_license_key_user_id');
+
+    // Delete '_altly_license_key_user_credits' option
+    delete_option('_altly_license_key_user_credits');
 
     return new \WP_REST_Response(['message' => 'License key removed'], 200);
-
   }
 
-  protected function handleGetRequest() {
+  protected function handleGetRequest()
+  {
     $license_key = get_option('_altly_license_key');
     if ($license_key) {
       return new \WP_REST_Response(['license_key' => $license_key], 200);
@@ -56,7 +68,8 @@ class LicenseRoute {
     return new \WP_REST_Response(['error' => 'License key not found.'], 404);
   }
 
-  protected function handlePostRequest($request) {
+  protected function handlePostRequest($request)
+  {
     $license_key = $request->get_param('license_key');
     if (!$license_key) {
       return new \WP_REST_Response(['error' => 'Missing license key.'], 400);
@@ -70,8 +83,9 @@ class LicenseRoute {
     return $this->validateAndSaveLicenseKey($license_key);
   }
 
-  protected function validateAndSaveLicenseKey($license_key) {
-    $api_response = $this->callExternalApi($license_key);
+  protected function validateAndSaveLicenseKey($license_key)
+  {
+    $api_response = $this->helper->callExternalApi($license_key);
     if (is_wp_error($api_response)) {
       return new \WP_REST_Response(['error' => $api_response->get_error_message()], 500);
     }
@@ -85,20 +99,7 @@ class LicenseRoute {
       update_option('_altly_license_key_user_credits', $api_data['data']['credits']);
       return new \WP_REST_Response(['message' => 'License key updated successfully'] + $api_data, 200);
     }
-    
+
     return new \WP_REST_Response($api_data ?: ['error' => 'Invalid API response'], $api_status ?: 500);
   }
-
-  protected function callExternalApi($license_key) {
-    $apiUrl = 'https://api.altly.io/v1/validate/license-key';
-    $headers = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer '. $license_key];
-    $body = json_encode(['license-key' => $license_key]);
-
-    return wp_remote_post($apiUrl, [
-      'headers' => $headers,
-      'body'    => $body,
-    ]);
-  }
-
-  
 }
