@@ -5,12 +5,13 @@ namespace Altly\AltTextGenerator;
 class LicenseRoute
 {
   private $helper;
-
+  private $license_key;
   public function __construct()
   {
     add_action('rest_api_init', array($this, 'register_license_key_route'));
     add_action('rest_api_init', array($this, 'register_remove_license_key_route'));
     $this->helper = new \Altly\AltTextGenerator\Helpers();
+    $this->license_key = get_option('_altly_license_key');
   }
 
   public function register_license_key_route()
@@ -61,7 +62,7 @@ class LicenseRoute
 
   protected function handleGetRequest()
   {
-    $license_key = get_option('_altly_license_key');
+    $license_key = $this->license_key;
     if ($license_key) {
       return new \WP_REST_Response(['license_key' => $license_key], 200);
     }
@@ -75,7 +76,7 @@ class LicenseRoute
       return new \WP_REST_Response(['error' => 'Missing license key.'], 400);
     }
 
-    $saved_license_key = get_option('_altly_license_key');
+    $saved_license_key = $this->license_key;
     if ($saved_license_key === $license_key) {
       return new \WP_REST_Response(['message' => 'License key is already validated and saved.'], 200);
     }

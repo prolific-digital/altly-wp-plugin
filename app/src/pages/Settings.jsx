@@ -1,7 +1,4 @@
-import React, {
-  useEffect,
-  useState,
-} from 'react';
+import React, { useEffect, useState } from 'react';
 
 import Form from '../components/Form';
 import Heading from '../components/Heading';
@@ -49,8 +46,6 @@ export default function Example() {
 
       const data = await response.json();
 
-      // console.log(data);
-
       if (response.ok) {
         setIsValueCorrect(true);
         setIsError(false);
@@ -81,14 +76,11 @@ export default function Example() {
       );
       // const data = await response.json();
 
-      if (response.ok) {
-        setIsLoading(false);
-        loadLicenseKey();
-      } else {
-        setIsLoading(false);
-        loadLicenseKey();
-        throw new Error('License key not found');
-      }
+      setIsLoading(false);
+      loadLicenseKey();
+      setSuccessMessage('');
+      setIsValueCorrect(false);
+      setIsError(false);
     } catch (error) {
       console.error('Error while loading the license key:', error);
       setIsError(true);

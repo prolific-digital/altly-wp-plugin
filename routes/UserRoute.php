@@ -21,7 +21,7 @@ class UserRoute
     ));
   }
 
-  public function get_user_credits($request)
+  public function get_user_credits()
   {
     return $this->helper->getUserCredits();
   }

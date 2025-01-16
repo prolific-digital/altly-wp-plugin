@@ -42,8 +42,16 @@ class Helpers
 
   public function getUserCredits()
   {
-    $user_data = $this->callExternalApi($this->license_key);
-    return json_decode($user_data)['data']['credits'];
+    $api_response = $this->callExternalApi($this->license_key);
+
+    if (is_wp_error($api_response)) {
+      return new \WP_REST_Response(['error' => $api_response->get_error_message()], 500);
+    }
+
+    $credits = json_decode(wp_remote_retrieve_body($api_response), true)['data']['credits'];
+
+
+    return $credits;
   }
 
   public function analyzeImage($apiBaseUrl, $image_url)
@@ -290,15 +298,13 @@ class Helpers
     return $media_details;
   }
 
-  public function callExternalApi($license_key)
+  public function callExternalApi()
   {
     $apiUrl = 'https://api.altly.io/v1/validate/license-key';
-    $headers = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $license_key];
-    $body = json_encode(['license-key' => $license_key]);
+    $headers = $this->prepareHeaders();
 
     return wp_remote_post($apiUrl, [
       'headers' => $headers,
-      'body'    => $body,
     ]);
   }
 }
