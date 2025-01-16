@@ -1,6 +1,12 @@
-import { Fragment, useState } from 'react';
-import { Disclosure, Menu, Transition } from '@headlessui/react';
-import { Bars3Icon, BellIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useState } from 'react';
+
+import { Disclosure } from '@headlessui/react';
+import {
+  Bars3Icon,
+  BellIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
+
 import Link from './Link';
 
 const user = {
@@ -15,16 +21,17 @@ function classNames(...classes) {
 }
 
 export default function AppShell({ children }) {
+  const currentUrl = window.location.href;
   const [navigation, setNavigation] = useState([
     {
       name: 'Dashboard',
       href: 'upload.php?page=altly&screen=dashboard',
-      current: true,
+      current: currentUrl.includes('dashboard'),
     },
     {
       name: 'Settings',
       href: 'upload.php?page=altly&screen=settings',
-      current: false,
+      current: currentUrl.includes('settings'),
     },
   ]);
 

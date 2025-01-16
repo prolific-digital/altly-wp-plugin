@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, {
+  useEffect,
+  useState,
+} from 'react';
 
 import Form from '../components/Form';
 import Heading from '../components/Heading';
@@ -24,7 +27,6 @@ export default function Example() {
   // Function to handle input change
   const handleInputChange = (event) => {
     setInputValue(event.target.value);
-    setIsError(false); // Reset error state when input changes
   };
 
   const handleSaveClick = async (formData) => {
@@ -104,16 +106,18 @@ export default function Example() {
       const response = await fetch(
         getBaseUrl() + '/wp-json/altly/v1/license-key'
       );
+
       const data = await response.json();
 
-      if (response.ok && data.license_key) {
+      if (response?.ok && data?.license_key) {
         setInputValue(data.license_key); // Set the license key if it exists
         setIsValueCorrect(true); // Assuming the key is correct if it's present
         setIsLoading(false);
+        setSuccessMessage('License key is valid');
       } else {
         setInputValue('');
         setIsLoading(false);
-        throw new Error('License key not found');
+        console.log('License key not found');
       }
     } catch (error) {
       console.error('Error while loading the license key:', error);
@@ -130,7 +134,7 @@ export default function Example() {
     loadLicenseKey();
   }, []); // The empty array ensures this effect runs only once
 
-  const hasValidLicense = inputValue.length > 0 && isValueCorrect;
+  const hasValidLicense = isValueCorrect && inputValue?.length > 0;
 
   return (
     <div>
@@ -147,17 +151,17 @@ export default function Example() {
             placeholder='xxx-xxx-xxx'
             name='license-key'
             value={inputValue} // Pass the input value
-            onChange={handleInputChange} // Pass the onChange handler
             isError={isError}
             isValueCorrect={isValueCorrect}
-            successMessage='License key is valid'
+            successMessage={successMessage}
             disabled={hasValidLicense}
+            onChange={handleInputChange} // Pass the onChange handler
           />
           <button
             type='submit'
-            className='rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
+            className='disabled:bg-gray-400 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
           >
-            {`${hasValidLicense ? 'Save' : 'Remove'} License`}
+            {`${hasValidLicense ? 'Remove' : 'Save'} License`}
           </button>
         </Form>
       )}
