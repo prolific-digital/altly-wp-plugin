@@ -1,48 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
+
 import ProgressBar from '../components/ProgressBar';
 import getBaseUrl from '../helpers/baseUrlHelper';
 import { getLicenseKey } from '../helpers/util';
 
-export default function HeadingDashboard({ data }) {
+export default function HeadingDashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [images, setImages] = useState([]);
-
-  // Use useEffect to watch for changes in isGenerating and isScanning
-  useEffect(() => {
-    if (isGenerating || isScanning) {
-      // Disable buttons when progress is ongoing
-      document.getElementById('bulkGenerateBtn').disabled = true;
-      document.getElementById('scanImagesBtn').disabled = true;
-    } else {
-      // Enable buttons when progress is not ongoing
-      document.getElementById('bulkGenerateBtn').disabled = false;
-      document.getElementById('scanImagesBtn').disabled = false;
-    }
-    
-  }, [isGenerating, isScanning, images]);
 
   const fetchImages = () => {
     handleScanImagesClick();
-    fetch(getBaseUrl()+'/wp-json/altly/v1/bulk-generate',
-    {
+    fetch(getBaseUrl() + '/wp-json/altly/v1/bulk-generate', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-      }
+      },
     })
-    .then(response => response.json())
-    .then(data => {
-      setImages(data);
-      processImages(data);
-    })
-    .catch(error => console.error('Error:', error));
+      .then((response) => response.json())
+      .then((data) => {
+        processImages(data);
+      })
+      .catch((error) => console.error('Error:', error));
   };
 
   // const processImagesv1 = async (images) => {
   //   const apiKey = await getLicenseKey();
-    
+
   //   images.forEach(image => {
   //     const images = [
   //       {
@@ -53,7 +37,7 @@ export default function HeadingDashboard({ data }) {
   //         platform_name: "WordPress"
   //       }
   //     ];
-      
+
   //     const jsonBody = JSON.stringify({ images: images });
 
   //     fetch('https://api.altly.io/v1/batch/queue', {
@@ -62,7 +46,7 @@ export default function HeadingDashboard({ data }) {
   //         'Content-Type': 'application/json',
   //         'Authorization': 'Bearer ' + apiKey,
   //       },
-        
+
   //       body: jsonBody,
   //     })
   //     .then(response => response.json())
@@ -73,10 +57,10 @@ export default function HeadingDashboard({ data }) {
 
   // const processImagesv2 = async (images) => {
   //   const apiKey = await getLicenseKey();
-  
+
   //   // Function to introduce a delay
   //   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  
+
   //   for (const image of images) {
   //     const imagesArray = [
   //       {
@@ -87,9 +71,9 @@ export default function HeadingDashboard({ data }) {
   //         platform_name: "WordPress"
   //       }
   //     ];
-  
+
   //     const jsonBody = JSON.stringify({ images: imagesArray });
-  
+
   //     try {
   //       const response = await fetch('https://api.altly.io/v1/batch/queue', {
   //         method: 'POST',
@@ -99,26 +83,32 @@ export default function HeadingDashboard({ data }) {
   //         },
   //         body: jsonBody,
   //       });
-  
+
   //       const data = await response.json();
   //       // console.log('Success:', data);
-  
+
   //       // Introduce a delay before proceeding to the next image
   //       // Adjust the delay time as needed (1000ms is 1 second)
-  //       await delay(50); 
+  //       await delay(50);
   //     } catch (error) {
   //       console.error('Error:', error);
   //     }
   //   }
   // };
 
-  const processImages = async (images, batchSize = 10, delayDuration = 1000) => {
+  const processImages = async (
+    images,
+    batchSize = 10,
+    delayDuration = 1000
+  ) => {
     const apiKey = await getLicenseKey();
-  
+
     for (let i = 0; i < images.length; i += batchSize) {
       const batch = images.slice(i, i + batchSize);
-      const promises = batch.map(image => sendImageProcessingRequest(image, apiKey));
-  
+      const promises = batch.map((image) =>
+        sendImageProcessingRequest(image, apiKey)
+      );
+
       try {
         await Promise.all(promises);
         // console.log('Batch success:', results);
@@ -126,40 +116,41 @@ export default function HeadingDashboard({ data }) {
         // console.error('Batch error:', error);
         // Implement retry logic here if necessary
       }
-  
+
       // Wait before sending the next batch
       await delay(delayDuration);
     }
   };
-  
+
   const sendImageProcessingRequest = async (image, apiKey) => {
     const requestBody = JSON.stringify({
-      images: [{
-        url: image.url,
-        api_endpoint: image.api_endpoint,
-        asset_id: image.asset_id,
-        transaction_id: image.transaction_id,
-        platform_name: "WordPress"
-      }]
+      images: [
+        {
+          url: image.url,
+          api_endpoint: image.api_endpoint,
+          asset_id: image.asset_id,
+          transaction_id: image.transaction_id,
+          platform_name: 'WordPress',
+        },
+      ],
     });
-  
+
     const response = await fetch('https://api.altly.io/v1/batch/queue', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: requestBody,
     });
-  
+
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-  
+
     return response.json();
   };
-  
-  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-  
-  
+
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   const handleScanImagesClick = () => {
     if (!isScanning) {
       setIsScanning(true);
