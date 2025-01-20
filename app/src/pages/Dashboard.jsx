@@ -7,6 +7,7 @@ import getBaseUrl from '../helpers/baseUrlHelper';
 export default function Dashboard() {
   const [imageData, setImageData] = useState(null);
   const [totalCreditsRemaining, setTotalCreditsRemaining] = useState(0);
+  const [statsLoading, setstatsLoading] = useState(true);
 
   // Function to update the state, which will be passed to ImageGrid
   const handleDataChange = (newData) => {
@@ -48,6 +49,7 @@ export default function Dashboard() {
       <HeadingDashboard
         data={imageData}
         totalCreditsRemaining={totalCreditsRemaining}
+        statsLoading={statsLoading}
       />
       <ImageGrid
         onDataChange={handleDataChange}

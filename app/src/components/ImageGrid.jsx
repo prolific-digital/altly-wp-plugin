@@ -6,10 +6,13 @@ import Stats from '../components/Stats';
 import StatsLoader from '../components/StatsLoader';
 import getBaseUrl from '../helpers/baseUrlHelper';
 
-export default function ImageGrid({ onDataChange, totalCreditsRemaining }) {
+export default function ImageGrid({
+  onDataChange,
+  totalCreditsRemaining,
+  statsLoading,
+}) {
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statsLoading, setstatsLoading] = useState(true);
   const [averageConfidenceScore, setAverageConfidenceScore] = useState(null);
   const [totalImages, setTotalImages] = useState(0);
   const [imagesMissingAltText, setImagesMissingAltText] = useState(0);
