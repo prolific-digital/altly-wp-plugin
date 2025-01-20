@@ -51,7 +51,6 @@ class Helpers
 
     $credits = json_decode(wp_remote_retrieve_body($api_response), true)['data']['credits'];
 
-
     return $credits;
   }
 

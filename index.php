@@ -4,7 +4,7 @@
 
 /*
 Plugin Name: Altly - Alt Text Generator
-Version: 1.1
+Version: 1.1.2
 Description: A plugin to generate alt text for images using AI
 Author: Prolific Digital
 */
@@ -34,7 +34,7 @@ function enqueue_ai_alt_text_script()
     // Enqueue your script with a unique handle, source URL, and any necessary dependencies
     wp_enqueue_script(
       'altly', // Unique handle
-      plugin_dir_url(__FILE__) . '/app/dist/assets/index.js', // Source URL
+      plugin_dir_url(__FILE__) . '/app/dist/assets/index-ea9d8d7d.js', // Source URL
       array(), // Dependencies (if any)
       '5', // Version
       true // Load script in the footer
@@ -43,7 +43,7 @@ function enqueue_ai_alt_text_script()
     // Enqueue your CSS with a unique handle, source URL, and any necessary dependencies
     wp_enqueue_style(
       'altly', // Unique handle
-      plugin_dir_url(__FILE__) . '/app/dist/assets/index.css', // Source URL
+      plugin_dir_url(__FILE__) . '/app/dist/assets/index-939e5311.css', // Source URL
       array(), // Dependencies (if any)
       '5' // Version
     );
@@ -150,15 +150,29 @@ function analyze_image_on_upload($attachment_id)
 
 function analyzeImagev2($attachment_id)
 {
+  $helper = new Altly\AltTextGenerator\Helpers();
+
+
   $apiUrl = 'https://api.altly.io/v1/analyze/image';
 
   $image_url = wp_get_attachment_url($attachment_id);
 
   $license_key = get_option('_altly_license_key');
 
+  if (!$license_key) {
+    return new WP_Error('no_license_key', 'License key not found.');
+  }
+
+  $user_credits = $helper->getUserCredits();
+
+  if ($user_credits < 1) {
+    return new WP_Error('no_credits', 'Not enough credits to analyze image.');
+  }
+
   $headers = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $license_key];
 
   $processing_id = Uuid::uuid4()->toString();
+
   update_post_meta($attachment_id, 'altly_processing_id', sanitize_text_field($processing_id));
 
   $api_url = home_url() . '/wp-json/altly/v1/process-response';
@@ -176,12 +190,14 @@ function analyzeImagev2($attachment_id)
   $jsonBody = json_encode(['images' => $images]);
 
   $api_response = wp_remote_post($apiUrl, ['headers' => $headers, 'body' => $jsonBody]);
+
   if (is_wp_error($api_response)) {
     return new WP_Error('api_error', $api_response->get_error_message());
   }
 
   $api_status = wp_remote_retrieve_response_code($api_response);
   $api_data = json_decode(wp_remote_retrieve_body($api_response), true);
+
   if ($api_status != 200) {
     return new WP_Error('api_failure', 'API call failed', ['status' => $api_status]);
   }
