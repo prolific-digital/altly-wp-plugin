@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+
 import ImageGridLoader from '../components/ImageGridLoader';
-import Stats from '../components/Stats';
 import Pagination from '../components/Pagination';
+import Stats from '../components/Stats';
 import StatsLoader from '../components/StatsLoader';
 import getBaseUrl from '../helpers/baseUrlHelper';
 
-export default function ImageGrid({ onDataChange }) {
+export default function ImageGrid({ onDataChange, totalCreditsRemaining }) {
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statsLoading, setstatsLoading] = useState(true);
   const [averageConfidenceScore, setAverageConfidenceScore] = useState(null);
   const [totalImages, setTotalImages] = useState(0);
-  const [totalCreditsRemaining, setTotalCreditsRemaining] = useState(0);
   const [imagesMissingAltText, setImagesMissingAltText] = useState(0);
   const [altImageData, setAltImageData] = useState();
 
@@ -39,14 +39,17 @@ export default function ImageGrid({ onDataChange }) {
   };
 
   const handleNextPage = () => {
-    setCurrentPage((prevPage) => (prevPage < Math.ceil(files.length / itemsPerPage) ? prevPage + 1 : prevPage));
+    setCurrentPage((prevPage) =>
+      prevPage < Math.ceil(files.length / itemsPerPage)
+        ? prevPage + 1
+        : prevPage
+    );
   };
 
   /*
     Update the URL to the CMS API endpoint.
   */
-  const cmsImageApiUrl =
-    getBaseUrl()+'/wp-json/altly/v1/get-media-details';
+  const cmsImageApiUrl = getBaseUrl() + '/wp-json/altly/v1/get-media-details';
 
   useEffect(() => {
     const fetchData = async (pageUrl) => {
@@ -55,32 +58,33 @@ export default function ImageGrid({ onDataChange }) {
         const data = await response.json();
 
         const itemsWithMissingAltText = data.media_details
-        .filter(item => !item.alt_text || item.alt_text.trim() === '') // Filter items with missing or empty alt_text
-        .map(item => ({
-          // Map each filtered item to a new object structure
-          alt_text: item.alt_text,
-          file_path: item.file_path,
-          id: item.id,
-          metadata: item.metadata,
-          url: item.url
-        }));
+          .filter((item) => !item.alt_text || item.alt_text.trim() === '') // Filter items with missing or empty alt_text
+          .map((item) => ({
+            // Map each filtered item to a new object structure
+            alt_text: item.alt_text,
+            file_path: item.file_path,
+            id: item.id,
+            metadata: item.metadata,
+            url: item.url,
+          }));
 
         // console.log('All Data:', data);
         // console.log('Missing Alt Text:', itemsWithMissingAltText);
-        // we're setting this below so we can send it to the dashboard which 
+        // we're setting this below so we can send it to the dashboard which
         // connects and sends it to the HeadingDashboard for bulk generation
         setAltImageData(itemsWithMissingAltText);
 
         // Process the data and create new file objects, these are the images displayed on the plugin dashboard
-        const newFiles = data.media_details.filter(item => !item.alt_text || item.alt_text.trim() === '').map((item) => ({
-          id: item.id,
-          title: `Image ${item.id}`,
-          size: `${item.metadata.width}x${item.metadata.height}`,
-          altText: item.alt_text,
-          confidenceScore: Math.round(item.confidence_score * 100) / 100,
-          source: item.url,
-        }));
-
+        const newFiles = data.media_details
+          .filter((item) => !item.alt_text || item.alt_text.trim() === '')
+          .map((item) => ({
+            id: item.id,
+            title: `Image ${item.id}`,
+            size: `${item.metadata.width}x${item.metadata.height}`,
+            altText: item.alt_text,
+            confidenceScore: Math.round(item.confidence_score * 100) / 100,
+            source: item.url,
+          }));
 
         setFiles(newFiles);
         setTotalImages(data.total_images);
@@ -111,46 +115,18 @@ export default function ImageGrid({ onDataChange }) {
 
   // const validateLicenseUrl = 'http://localhost:3000/validate/license-key';
 
-  useEffect(() => {
-    const getUserCredits = async () => {
-      const url = getBaseUrl()+'/wp-json/altly/v1/get-user-credits';
-      try {
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status} ${response.statusText}`);
-        }
-
-        const credits = await response.json();
-        
-        if (credits !== false) {
-          // setUserData({ credits: data.credits });
-          setTotalCreditsRemaining(credits);
-          setstatsLoading(false);
-        } else {
-          setstatsLoading(false);
-        }
-
-        // console.log(data);
-
-      } catch (error) {
-        setstatsLoading(false);
-        console.error('Error fetching user credits:', error);
-      }
-    };
-
-    getUserCredits();
-  }, []);
-
   return (
     <div>
-      {statsLoading ? <StatsLoader /> : 
-      <Stats
-        totalImages={totalImages}
-        missingAltText={imagesMissingAltText}
-        score={averageConfidenceScore}
-        credits={totalCreditsRemaining}
-      />}
+      {statsLoading ? (
+        <StatsLoader />
+      ) : (
+        <Stats
+          totalImages={totalImages}
+          missingAltText={imagesMissingAltText}
+          score={averageConfidenceScore}
+          credits={totalCreditsRemaining}
+        />
+      )}
       {isLoading ? (
         <ImageGridLoader />
       ) : (
@@ -207,7 +183,3 @@ export default function ImageGrid({ onDataChange }) {
     </div>
   );
 }
-
-
-
-

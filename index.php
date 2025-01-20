@@ -4,7 +4,7 @@
 
 /*
 Plugin Name: Altly - Alt Text Generator
-Version: 1.1.2
+Version: 1.1.3
 Description: A plugin to generate alt text for images using AI
 Author: Prolific Digital
 */
@@ -34,7 +34,7 @@ function enqueue_ai_alt_text_script()
     // Enqueue your script with a unique handle, source URL, and any necessary dependencies
     wp_enqueue_script(
       'altly', // Unique handle
-      plugin_dir_url(__FILE__) . '/app/dist/assets/index-ea9d8d7d.js', // Source URL
+      plugin_dir_url(__FILE__) . '/app/dist/assets/index-876c50f7.js', // Source URL
       array(), // Dependencies (if any)
       '5', // Version
       true // Load script in the footer

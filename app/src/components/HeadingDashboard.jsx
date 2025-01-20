@@ -1,13 +1,10 @@
-import {
-  useEffect,
-  useState,
-} from 'react';
+import { useEffect, useState } from 'react';
 
 import ProgressBar from '../components/ProgressBar';
 import getBaseUrl from '../helpers/baseUrlHelper';
 import { getLicenseKey } from '../helpers/util';
 
-export default function HeadingDashboard() {
+export default function HeadingDashboard({ totalCreditsRemaining }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -208,7 +205,12 @@ export default function HeadingDashboard() {
             type='button'
             id='bulkGenerateBtn'
             onClick={fetchImages}
-            disabled={!licenseKey || isGenerating || isScanning} // Disable if progress is ongoing
+            disabled={
+              !totalCreditsRemaining ||
+              !licenseKey ||
+              isGenerating ||
+              isScanning
+            } // Disable if progress is ongoing
             className='disabled:bg-gray-400 ml-3 inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover-bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
           >
             {isGenerating ? 'Generating...' : 'Bulk Generate'}

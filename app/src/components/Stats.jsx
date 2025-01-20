@@ -38,7 +38,11 @@ export default function Example({
         <dt className='text-sm font-medium leading-6 text-gray-500'>
           Credits Remaining
         </dt>
-        <dd className='w-full flex-none text-3xl font-medium leading-10 tracking-tight text-gray-900'>
+        <dd
+          className={`w-full flex-none text-3xl font-medium leading-10 tracking-tight ${
+            credits ? 'text-gray-900' : 'text-red-500'
+          }`}
+        >
           {credits}
         </dd>
       </div>

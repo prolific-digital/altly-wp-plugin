@@ -4,12 +4,14 @@
 namespace Altly\AltTextGenerator;
 
 // Class MediaDetailsRoute is responsible for handling custom REST API endpoints related to media details in WordPress.
-class MediaDetailsRoute {
+class MediaDetailsRoute
+{
 
   private $helper;
 
   // Constructor method, automatically called when an instance of the class is created.
-  public function __construct() {
+  public function __construct()
+  {
     // Hook into the WordPress REST API initialization to register custom endpoints.
     add_action('rest_api_init', array($this, 'register_get_media_details'));
     add_action('rest_api_init', array($this, 'register_bulk_generate'));
@@ -18,7 +20,8 @@ class MediaDetailsRoute {
   }
 
   // Registers a REST route for retrieving media details.
-  public function register_caption_retrieval() {
+  public function register_caption_retrieval()
+  {
     // Define a new route in the WordPress REST API namespace 'altly/v1' with the endpoint '/get-media-details'.
     register_rest_route('altly/v1', '/process-response', array(
       'methods' => 'POST', // Specify that this endpoint responds to HTTP GET requests.
@@ -28,7 +31,8 @@ class MediaDetailsRoute {
   }
 
   // Registers a REST route for retrieving media details.
-  public function register_get_media_details() {
+  public function register_get_media_details()
+  {
     // Define a new route in the WordPress REST API namespace 'altly/v1' with the endpoint '/get-media-details'.
     register_rest_route('altly/v1', '/get-media-details', array(
       'methods' => 'GET', // Specify that this endpoint responds to HTTP GET requests.
@@ -38,7 +42,8 @@ class MediaDetailsRoute {
   }
 
   // Registers a REST route for bulk generating alt text for images.
-  public function register_bulk_generate() {
+  public function register_bulk_generate()
+  {
     // Define a new route in the WordPress REST API for bulk generation with the endpoint '/bulk-generate'.
     register_rest_route('altly/v1', '/bulk-generate', array(
       'methods' => 'GET', // Specify that this endpoint responds to HTTP GET requests.
@@ -48,35 +53,38 @@ class MediaDetailsRoute {
   }
 
   // (Optional) A method to check user permissions before allowing access to certain endpoints.
-  public function check_permission() {
+  public function check_permission()
+  {
     // Returns true if the user is logged in and has the 'manage_options' capability, ensuring administrative access.
     return is_user_logged_in() && current_user_can('manage_options');
   }
 
-  public function handle_get_media_details($request) {
+  public function handle_get_media_details($request)
+  {
     $args = $this->helper->defineMediaArgs();
     $media_query = new \WP_Query($args);
 
     if (!$media_query->have_posts()) {
-        return rest_ensure_response(['message' => 'No media found.']);
+      return rest_ensure_response(['message' => 'No media found.']);
     }
 
     $media_details = $this->helper->compileMediaDetails($media_query);
     wp_reset_postdata();
 
     $response_data = [
-        'total_images' => $media_query->found_posts,
-        'images_missing_alt_text' => count($this->helper->getImagesMissingAltText()),
-        'media_details' => $media_details,
+      'total_images' => $media_query->found_posts,
+      'images_missing_alt_text' => count($this->helper->getImagesMissingAltText()),
+      'media_details' => $media_details,
     ];
 
     return rest_ensure_response($response_data);
   }
 
-  public function handle_bulk_generate($request) {
+  public function handle_bulk_generate($request)
+  {
 
     if ('GET' !== $request->get_method()) {
-        return new \WP_REST_Response(['error' => 'Invalid request method'], 405);
+      return new \WP_REST_Response(['error' => 'Invalid request method'], 405);
     }
 
     $response = $this->helper->queueImages($this->helper->getImagesMissingAltText());
@@ -86,7 +94,8 @@ class MediaDetailsRoute {
     return $response;
   }
 
-  public function handle_incoming_caption($request) {
+  public function handle_incoming_caption($request)
+  {
     $data = $request->get_json_params(); // Get the data from the request
 
     error_log('API Response: ' . print_r($data, true));
@@ -106,24 +115,24 @@ class MediaDetailsRoute {
         $generated_alt_text = $meta_data['alt_text'] ?? ''; // Check for 'alt_text'
 
         if ($attachment_id && $processing_id) {
-            $attachment = get_post($attachment_id);
+          $attachment = get_post($attachment_id);
 
           // Validate if image exists and is an attachment
           if ($attachment && $attachment->post_type === 'attachment') {
-              $attachment_processing_id = get_post_meta($attachment_id, 'altly_processing_id', true);
+            $attachment_processing_id = get_post_meta($attachment_id, 'altly_processing_id', true);
 
             // Validate if processing_id matches
             if ($processing_id === $attachment_processing_id) {
-                $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+              $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
 
               // Validate if alt_text is missing
               if (empty($alt_text)) {
-                  update_post_meta($attachment_id, '_wp_attachment_image_alt', $generated_alt_text);
-                  // Assuming you have a way to get the correct timestamp since it's not provided in the data
-                  // update_post_meta($attachment_id, 'altly_processing_timestamp', $timestamp);
-                  update_post_meta($attachment_id, 'altly_processing_status', 'processed');
+                update_post_meta($attachment_id, '_wp_attachment_image_alt', $generated_alt_text);
+                // Assuming you have a way to get the correct timestamp since it's not provided in the data
+                // update_post_meta($attachment_id, 'altly_processing_timestamp', $timestamp);
+                update_post_meta($attachment_id, 'altly_processing_status', 'processed');
 
-                  // Return a result or perform additional actions
+                // Return a result or perform additional actions
               }
             }
           }
@@ -133,8 +142,6 @@ class MediaDetailsRoute {
 
     return new \WP_REST_Response('success', 200);
   }
-
-
 }
 
 
