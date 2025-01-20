@@ -35,9 +35,10 @@ class Helpers
    *
    * @return array An associative array of header names and values.
    */
-  public function prepareHeaders()
+  public function prepareHeaders($license_key = null)
   {
-    return ['Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $this->license_key];
+    $key = $this->license_key ? $this->license_key : $license_key;
+    return ['Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $key];
   }
 
   public function getUserCredits()
@@ -298,13 +299,16 @@ class Helpers
     return $media_details;
   }
 
-  public function callExternalApi()
+  public function callExternalApi($license_key)
   {
+    $key = $this->license_key ? $this->license_key : $license_key;
     $apiUrl = 'https://api.altly.io/v1/validate/license-key';
-    $headers = $this->prepareHeaders();
+    $headers = $this->prepareHeaders($key);
+    $body = json_encode(['license-key' => $key]);
 
     return wp_remote_post($apiUrl, [
       'headers' => $headers,
+      'body'    => $body,
     ]);
   }
 }
