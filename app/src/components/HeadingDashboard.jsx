@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import {
+  useEffect,
+  useState,
+} from 'react';
 
 import ProgressBar from '../components/ProgressBar';
 import getBaseUrl from '../helpers/baseUrlHelper';
@@ -8,6 +11,15 @@ export default function HeadingDashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [licenseKey, setLicenseKey] = useState(false);
+
+  // Set license Key so as to use it to disabled the Bulk Generate Button.
+  useEffect(() => {
+    (async () => {
+      const response = await getLicenseKey();
+      setLicenseKey(response);
+    })();
+  }, []);
 
   const fetchImages = () => {
     handleScanImagesClick();
@@ -101,13 +113,9 @@ export default function HeadingDashboard() {
     batchSize = 10,
     delayDuration = 1000
   ) => {
-    const apiKey = await getLicenseKey();
-
     for (let i = 0; i < images.length; i += batchSize) {
       const batch = images.slice(i, i + batchSize);
-      const promises = batch.map((image) =>
-        sendImageProcessingRequest(image, apiKey)
-      );
+      const promises = batch.map((image) => sendImageProcessingRequest(image));
 
       try {
         await Promise.all(promises);
@@ -122,7 +130,7 @@ export default function HeadingDashboard() {
     }
   };
 
-  const sendImageProcessingRequest = async (image, apiKey) => {
+  const sendImageProcessingRequest = async (image) => {
     const requestBody = JSON.stringify({
       images: [
         {
@@ -139,7 +147,7 @@ export default function HeadingDashboard() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${licenseKey}`,
       },
       body: requestBody,
     });
@@ -200,8 +208,8 @@ export default function HeadingDashboard() {
             type='button'
             id='bulkGenerateBtn'
             onClick={fetchImages}
-            disabled={isGenerating || isScanning} // Disable if progress is ongoing
-            className='ml-3 inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover-bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
+            disabled={!licenseKey || isGenerating || isScanning} // Disable if progress is ongoing
+            className='disabled:bg-gray-400 ml-3 inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover-bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
           >
             {isGenerating ? 'Generating...' : 'Bulk Generate'}
           </button>
