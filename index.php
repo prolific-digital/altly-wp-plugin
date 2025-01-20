@@ -34,7 +34,7 @@ function enqueue_ai_alt_text_script()
     // Enqueue your script with a unique handle, source URL, and any necessary dependencies
     wp_enqueue_script(
       'altly', // Unique handle
-      plugin_dir_url(__FILE__) . '/app/dist/assets/index-876c50f7.js', // Source URL
+      plugin_dir_url(__FILE__) . '/app/dist/assets/index-7f3b2213.js', // Source URL
       array(), // Dependencies (if any)
       '5', // Version
       true // Load script in the footer
