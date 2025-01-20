@@ -75,7 +75,7 @@ export default function Input({
         </p>
       ) : isError ? (
         <p className='mt-2 text-sm text-red-600' id={`${name}-error`}>
-          Value is not correct.
+          License Key is not valid. Please try another key.
         </p>
       ) : isValueCorrect ? (
         <p className='mt-2 text-sm text-green-600'>{successMessage}</p>
