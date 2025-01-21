@@ -40,7 +40,7 @@ export default function Example({
         </dt>
         <dd
           className={`w-full flex-none text-3xl font-medium leading-10 tracking-tight ${
-            credits < 1 ? 'text-gray-900' : 'text-red-500'
+            credits > 0 ? 'text-gray-900' : 'text-red-500'
           }`}
         >
           {credits}
