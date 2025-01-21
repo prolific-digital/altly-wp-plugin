@@ -41,7 +41,7 @@ class Helpers
     return ['Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $key];
   }
 
-  public function getUserCredits()
+  public function getUserCredits(): int
   {
     $api_response = $this->callExternalApi($this->license_key);
 
@@ -220,12 +220,21 @@ class Helpers
     return $processing_id;
   }
 
+  /**
+   * Queues images for processing based on available credits
+   * @param array $attachment_ids Array of attachment IDs to process
+   * @return array Queued images (limited by available credits)
+   */
   public function queueImages($attachment_ids)
   {
     $results = [];
-
+    $credits = $this->getUserCredits();
 
     foreach ($attachment_ids as $attachment_id) {
+      if ($credits < 1) {
+        break;
+      }
+
       $asset_id = $attachment_id['id'];
 
       $processing_id = $this->getOrCreateProcessingId($asset_id);
@@ -242,6 +251,8 @@ class Helpers
       ];
 
       $results[] = $images;
+
+      $credits--;
     }
 
     return $results;

@@ -87,12 +87,6 @@ class MediaDetailsRoute
       return new \WP_REST_Response(['error' => 'Invalid request method'], 405);
     }
 
-    $credits = $this->helper->getUserCredits();
-
-    if ($credits < 1) {
-      return new \WP_REST_Response(['error' => 'Not enough credits to analyze images'], 403);
-    }
-
     $response = $this->helper->queueImages($this->helper->getImagesMissingAltText());
 
     error_log('API Response: ' . print_r($response, true));
