@@ -10,12 +10,13 @@ export default function ImageGrid({
   onDataChange,
   totalCreditsRemaining,
   statsLoading,
+  imagesMissingAltText,
+  setImagesMissingAltText,
 }) {
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [averageConfidenceScore, setAverageConfidenceScore] = useState(null);
   const [totalImages, setTotalImages] = useState(0);
-  const [imagesMissingAltText, setImagesMissingAltText] = useState(0);
   const [altImageData, setAltImageData] = useState();
 
   const [currentPage, setCurrentPage] = useState(1);

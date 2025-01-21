@@ -8,6 +8,7 @@ export default function Dashboard() {
   const [imageData, setImageData] = useState(null);
   const [totalCreditsRemaining, setTotalCreditsRemaining] = useState(0);
   const [statsLoading, setstatsLoading] = useState(true);
+  const [imagesMissingAltText, setImagesMissingAltText] = useState(0);
 
   // Function to update the state, which will be passed to ImageGrid
   const handleDataChange = (newData) => {
@@ -50,10 +51,13 @@ export default function Dashboard() {
         data={imageData}
         totalCreditsRemaining={totalCreditsRemaining}
         statsLoading={statsLoading}
+        imagesMissingAltText={imagesMissingAltText}
       />
       <ImageGrid
         onDataChange={handleDataChange}
         totalCreditsRemaining={totalCreditsRemaining}
+        imagesMissingAltText={imagesMissingAltText}
+        setImagesMissingAltText={setImagesMissingAltText}
       />
     </>
   );

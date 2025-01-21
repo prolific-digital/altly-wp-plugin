@@ -4,7 +4,10 @@ import ProgressBar from '../components/ProgressBar';
 import getBaseUrl from '../helpers/baseUrlHelper';
 import { getLicenseKey } from '../helpers/util';
 
-export default function HeadingDashboard({ totalCreditsRemaining }) {
+export default function HeadingDashboard({
+  totalCreditsRemaining,
+  imagesMissingAltText,
+}) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -206,7 +209,8 @@ export default function HeadingDashboard({ totalCreditsRemaining }) {
             id='bulkGenerateBtn'
             onClick={fetchImages}
             disabled={
-              !totalCreditsRemaining ||
+              imagesMissingAltText < 1 ||
+              totalCreditsRemaining < 1 ||
               !licenseKey ||
               isGenerating ||
               isScanning
