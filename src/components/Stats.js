@@ -1,10 +1,15 @@
-// src/components/Stats.js
 import React from "react";
 
-export default function Stats({ totalImages, missingAltCount, creditsLeft }) {
+export default function Stats({
+  totalImages,
+  missingAltCount,
+  queuedCount,
+  creditsLeft,
+}) {
   const stats = [
     { name: "Total Images", stat: totalImages },
     { name: "Missing Alt Text", stat: missingAltCount },
+    { name: "Queued Images", stat: queuedCount },
     { name: "Credits", stat: creditsLeft },
   ];
 
@@ -13,7 +18,7 @@ export default function Stats({ totalImages, missingAltCount, creditsLeft }) {
       <h3 className="text-base font-semibold text-gray-900">
         Media Library Stats
       </h3>
-      <dl className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <dl className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-4">
         {stats.map((item) => (
           <div
             key={item.name}

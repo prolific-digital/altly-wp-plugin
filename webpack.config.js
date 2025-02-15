@@ -1,6 +1,7 @@
-// webpack.config.js
 const path = require("path");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+const Dotenv = require("dotenv-webpack");
+const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = (env, argv) => {
   const isProd = argv.mode === "production";
@@ -43,7 +44,37 @@ module.exports = (env, argv) => {
     },
     plugins: [
       new MiniCssExtractPlugin({
-        filename: "style.css",
+        filename: "index.css",
+      }),
+      new Dotenv({
+        path: isProd
+          ? path.resolve(__dirname, ".env") // Production builds load .env
+          : path.resolve(__dirname, ".env.local"), // Development loads .env.local
+        safe: false,
+        allowEmptyValues: true,
+        systemvars: false,
+        silent: false,
+      }),
+      // Copy all PHP files to the build folder, excluding unnecessary files.
+      new CopyPlugin({
+        patterns: [
+          {
+            from: "**/*.php",
+            context: __dirname,
+            globOptions: {
+              ignore: [
+                "**/node_modules/**",
+                "**/build/**",
+                "**/.DS_Store",
+                "**/.env",
+                "**/.env.local",
+                "**/.gitignore",
+                "**/*.map",
+                "**/src/**",
+              ],
+            },
+          },
+        ],
       }),
     ],
     devServer: {
@@ -53,7 +84,7 @@ module.exports = (env, argv) => {
       compress: true,
       port: 3002, // your chosen port
       hot: false, // disable hot module replacement
-      open: true,
+      open: false,
       watchFiles: ["src/**/*"],
       devMiddleware: {
         writeToDisk: true, // write assets to disk in dev mode

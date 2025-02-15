@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 
+const API_VALIDATE_URL = process.env.REACT_APP_API_VALIDATE_URL;
+const API_QUEUE_URL = process.env.REACT_APP_API_QUEUE_URL;
+
 export default function Settings({ onUpdateCredits }) {
   const [apiKey, setApiKey] = useState(AltlySettings.apiKey || "");
   const [error, setError] = useState("");
@@ -20,8 +23,7 @@ export default function Settings({ onUpdateCredits }) {
     }
     setLoading(true);
     try {
-      const validateEndpoint = "http://localhost:3000/v2/validate";
-      const resValidation = await fetch(validateEndpoint, {
+      const resValidation = await fetch(API_VALIDATE_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -121,7 +123,7 @@ export default function Settings({ onUpdateCredits }) {
                 <input
                   id="api-key"
                   name="api-key"
-                  type="text"
+                  type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="your-api-key"

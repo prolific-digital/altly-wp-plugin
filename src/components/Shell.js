@@ -1,12 +1,22 @@
-// src/components/Shell.js
 import React, { useState, useEffect } from "react";
-import { HomeIcon, Cog8ToothIcon } from "@heroicons/react/24/outline";
+import {
+  HomeIcon,
+  Cog8ToothIcon,
+  ArrowTopRightOnSquareIcon,
+} from "@heroicons/react/24/outline";
 import { UserCircleIcon } from "@heroicons/react/24/solid";
 import ImageGrid from "./ImageGrid";
 import Settings from "./Settings";
 import Stats from "./Stats";
 import Pagination from "./Pagination";
 import EmptyState from "./EmptyState";
+
+// Import our notice components
+import CreditExhaustedNotice from "./CreditExhaustedNotice";
+import CreditLowNotice from "./CreditLowNotice";
+
+const API_VALIDATE_URL = process.env.REACT_APP_API_VALIDATE_URL;
+const API_QUEUE_URL = process.env.REACT_APP_API_QUEUE_URL;
 
 export default function Shell() {
   const [view, setView] = useState("dashboard");
@@ -19,6 +29,9 @@ export default function Shell() {
   const [bulkGenerating, setBulkGenerating] = useState(false);
   const [bulkMessage, setBulkMessage] = useState("");
   const [userCredits, setUserCredits] = useState("N/A");
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [queuedCount, setQueuedCount] = useState(0);
+
   const itemsPerPage = 12;
 
   // Fetch images and stats.
@@ -37,6 +50,7 @@ export default function Shell() {
       setImages(data.images);
       setTotalImages(data.stats.total_images);
       setMissingAltCount(data.stats.missing_alt_count);
+      setQueuedCount(data.stats.queued_count);
       const totalPagesHeader = res.headers.get("X-WP-TotalPages");
       setTotalPages(totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1);
     } catch (error) {
@@ -48,9 +62,8 @@ export default function Shell() {
   // Fetch user credits from the validation endpoint.
   const fetchCredits = async () => {
     if (AltlySettings.apiKey) {
-      const validateEndpoint = "http://localhost:3000/v2/validate";
       try {
-        const res = await fetch(validateEndpoint, {
+        const res = await fetch(API_VALIDATE_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -60,7 +73,7 @@ export default function Shell() {
         if (res.ok) {
           const data = await res.json();
           if (data.data && data.data.credits != null) {
-            setUserCredits(data.data.credits);
+            setUserCredits(Number(data.data.credits));
           }
         }
       } catch (error) {
@@ -80,38 +93,44 @@ export default function Shell() {
   const allQueued =
     images.length > 0 && images.every((img) => img.queued === true);
 
-  // In src/components/Shell.js
+  // Handler for Bulk Generate button.
   const handleBulkGenerate = async () => {
-    // If there are no missing images, show a message.
-    if (missingAltCount === 0) {
-      setBulkMessage("No images available for bulk generation.");
+    // Check if credits are exhausted.
+    if (typeof userCredits === "number" && userCredits <= 0) {
+      setBulkMessage(
+        "Your credits are exhausted. Please visit your account to purchase additional credits."
+      );
       return;
     }
+
     setBulkGenerating(true);
     setBulkMessage("");
-    let queued = 0;
-    let failed = 0;
+    setBulkProgress(0);
 
     try {
-      // Fetch ALL missing images by setting per_page=-1.
-      const resAll = await fetch(
-        AltlySettings.restUrl + "images?page=1&per_page=-1",
-        { headers: { "X-WP-Nonce": AltlySettings.nonce } }
-      );
+      const resAll = await fetch(`${AltlySettings.restUrl}images?per_page=-1`, {
+        headers: { "X-WP-Nonce": AltlySettings.nonce },
+      });
       const dataAll = await resAll.json();
       const allImages = dataAll.images;
+      let imagesToQueue = allImages.filter((img) => !img.queued);
 
-      // Filter out images that are already queued.
-      const imagesToQueue = allImages.filter((img) => !img.queued);
+      // If credits are less than available images, only process as many as credits allow.
+      if (
+        typeof userCredits === "number" &&
+        imagesToQueue.length > userCredits
+      ) {
+        imagesToQueue = imagesToQueue.slice(0, userCredits);
+      }
+
       if (imagesToQueue.length === 0) {
         setBulkMessage("No images available for bulk generation.");
         setBulkGenerating(false);
         return;
       }
 
-      const queueEndpoint = "http://localhost:3000/v2/queue";
-
-      for (const image of imagesToQueue) {
+      let completed = 0;
+      const queuePromises = imagesToQueue.map(async (image) => {
         try {
           const resBlob = await fetch(image.src);
           const blob = await resBlob.blob();
@@ -123,17 +142,14 @@ export default function Shell() {
           formData.append("api_key", AltlySettings.apiKey);
           formData.append("image_id", image.id);
 
-          const resQueue = await fetch(queueEndpoint, {
+          const resQueue = await fetch(API_QUEUE_URL, {
             method: "POST",
-            headers: {
-              Authorization: "Bearer " + AltlySettings.apiKey,
-            },
+            headers: { Authorization: "Bearer " + AltlySettings.apiKey },
             body: formData,
           });
           const dataQueue = await resQueue.json();
           if (dataQueue.success) {
-            queued++;
-            await fetch(AltlySettings.restUrl + "mark-queued", {
+            await fetch(`${AltlySettings.restUrl}mark-queued`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -141,17 +157,24 @@ export default function Shell() {
               },
               body: JSON.stringify({ image_id: image.id }),
             });
+            return { id: image.id, status: "queued" };
           } else {
-            failed++;
+            return { id: image.id, status: "failed" };
           }
         } catch (error) {
           console.error("Error enqueuing image:", error);
-          failed++;
+          return { id: image.id, status: "failed" };
+        } finally {
+          completed++;
+          setBulkProgress((completed / imagesToQueue.length) * 100);
         }
-      }
+      });
 
+      const results = await Promise.all(queuePromises);
+      const queuedCount = results.filter((r) => r.status === "queued").length;
+      const failedCount = results.filter((r) => r.status !== "queued").length;
       setBulkMessage(
-        `Bulk generation completed: ${queued} images queued, ${failed} failed.`
+        `Bulk generation completed: ${queuedCount} images queued, ${failedCount} failed.`
       );
     } catch (error) {
       console.error("Error fetching all missing images:", error);
@@ -159,14 +182,24 @@ export default function Shell() {
     }
 
     setBulkGenerating(false);
-    fetchImages();
+    fetchImages(); // Refresh the dashboard.
   };
 
   // Handler for Clear Queue button.
   const handleClearQueue = async () => {
-    if (images.length === 0) return;
     try {
-      const image_ids = images.map((img) => img.id);
+      const resAll = await fetch(`${AltlySettings.restUrl}images?per_page=-1`, {
+        headers: { "X-WP-Nonce": AltlySettings.nonce },
+      });
+      const dataAll = await resAll.json();
+      const allImages = dataAll.images;
+
+      if (allImages.length === 0) {
+        setBulkMessage("No images to clear.");
+        return;
+      }
+
+      const image_ids = allImages.map((img) => img.id);
       const res = await fetch(AltlySettings.restUrl + "clear-queue", {
         method: "POST",
         headers: {
@@ -177,7 +210,7 @@ export default function Shell() {
       });
       const data = await res.json();
       if (data.success) {
-        setBulkMessage("Queue cleared for current images.");
+        setBulkMessage("Queue cleared for all images.");
         fetchImages();
       } else {
         setBulkMessage("Failed to clear queue.");
@@ -219,6 +252,15 @@ export default function Shell() {
               <Cog8ToothIcon className="h-5 w-5 mr-1" />
               Settings
             </button>
+            <a
+              href="https://prolificdigital.notion.site/Altly-User-Documention-19b5efcd8c5f807cbd9bdfd14bfe2c52?pvs=4"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-200"
+            >
+              <ArrowTopRightOnSquareIcon className="h-4 w-4 mr-1" />
+              Documentation
+            </a>
           </div>
           <div className="flex items-center space-x-4">
             <a
@@ -230,7 +272,21 @@ export default function Shell() {
               <UserCircleIcon className="h-6 w-6 mr-1" />
               <span className="text-sm font-medium">View Account</span>
             </a>
-            <div className="text-lg font-bold">Altly</div>
+            <a
+              href="https://altly.ai"
+              target="_blank"
+              className="flex-shrink-0 w-20"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="100%"
+                height="64"
+                viewBox="0 0 124 64"
+                fill="none"
+              >
+                {/* Your SVG paths here */}
+              </svg>
+            </a>
           </div>
         </div>
       </header>
@@ -241,7 +297,15 @@ export default function Shell() {
           {view === "dashboard" ? (
             <>
               <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
-              {/* Bulk Generate & Clear Queue Buttons */}
+
+              {/* Display Credit Notices */}
+              {typeof userCredits === "number" &&
+                (userCredits <= 0 ? (
+                  <CreditExhaustedNotice />
+                ) : userCredits < 20 ? (
+                  <CreditLowNotice credits={userCredits} />
+                ) : null)}
+
               {bulkMessage && (
                 <p className="mb-2 text-sm text-gray-700 text-right">
                   {bulkMessage}
@@ -267,9 +331,24 @@ export default function Shell() {
                   Clear Queue
                 </button>
               </div>
+              {bulkGenerating && (
+                <>
+                  <div className="w-full bg-gray-200 h-2 rounded mb-1">
+                    <div
+                      className="bg-blue-500 h-2 rounded transition-all duration-300"
+                      style={{ width: `${bulkProgress}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-center text-xs text-gray-700 mb-4">
+                    {Math.round(bulkProgress)}%
+                  </div>
+                </>
+              )}
+
               <Stats
                 totalImages={totalImages}
                 missingAltCount={missingAltCount}
+                queuedCount={queuedCount}
                 creditsLeft={userCredits}
               />
               {loadingImages ? (
@@ -302,7 +381,7 @@ export default function Shell() {
             <>
               <h1 className="text-3xl font-bold mb-6">Settings</h1>
               <Settings
-                onUpdateCredits={(credits) => setUserCredits(credits)}
+                onUpdateCredits={(credits) => setUserCredits(Number(credits))}
               />
             </>
           )}
