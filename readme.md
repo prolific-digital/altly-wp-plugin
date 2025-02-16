@@ -97,23 +97,6 @@ http://localhost:3000/v2/queue/process/
 
 Include an `Authorization` header with your API key. If you're not running the API locally, external Altly services will not push changes to your local environment; this setup is provided purely for development convenience.
 
-## FAQ
-
-**Q: Do I need an API key?**
-A: Yes. An API key is required to use the external AI service for generating alt text.
-
-**Q: How do I get my API key?**
-A: You can obtain your API key by logging into your account at [https://app.altly.io](https://app.altly.io/).
-
-**Q: Will the plugin overwrite my existing alt text?**
-A: No. The plugin only generates alt text for images that are missing it, leaving any existing alt text intact.
-
-**Q: How does this plugin improve SEO?**
-A: By automatically generating descriptive, optimized alt text, the plugin helps search engines better understand your images, thereby enhancing your site's SEO.
-
-**Q: Can I process images locally?**
-A: Yes. If you run the Altly API locally, you can queue and process images and see those changes in your local WordPress environment. Use a GET request to `http://localhost:3000/v2/queue/process/` with the proper `Authorization` header. If you're not running the API locally, the external service won't push updates to your local setup.
-
 ## Changelog
 
 ### 0.0.1
