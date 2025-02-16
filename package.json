@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "webpack serve --mode development",
     "build": "webpack --mode production",
-    "zip": "yarn build && cd build && zip -r ../altly-ai-text-generator.zip . -x '*.map' && cd .."
+    "zip": "yarn build && zip -r altly.zip altly-ai-text-generator.php build languages readme.txt -x \"**/node_modules/**\" \"**/src/**\" \"**/*.map\" \"**/.DS_Store\" \"**/.env*\" \"**/.git*\""
   },
   "dependencies": {
     "@heroicons/react": "^2.0.16",

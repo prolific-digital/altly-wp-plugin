@@ -41,28 +41,30 @@ function altly_admin_notice() {
   // Sanitize GET input.
   $page = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : '';
   // Avoid displaying notice on the plugin’s own settings page.
-  if ('altly-settings' === $page) {
+  if ('altly' === $page) {
     return;
   }
   $license_key = get_option('altly_license_key', '');
   if (empty($license_key)) {
-    $settings_url = admin_url('tools.php?page=altly-settings');
+    // Updated settings URL: now under Media.
+    $settings_url = admin_url('upload.php?page=altly');
     echo '<div class="notice notice-warning is-dismissible">';
-    echo '<p>Altly plugin requires an API license key. Please <a href="' . esc_url($settings_url) . '">enter your API key here</a>.</p>';
+    echo '<p>Generate Alt Text plugin requires an API license key. Please <a href="' . esc_url($settings_url) . '">enter your API key here</a>.</p>';
     echo '</div>';
   }
 }
 add_action('admin_notices', 'altly_admin_notice');
 
 /**
- * Register admin menu page under Tools.
+ * Register admin menu page under Media.
  */
 function altly_register_admin_page() {
-  add_management_page(
-    'Altly - AI Text Generator',
-    'Altly - AI Text Generator',
+  add_submenu_page(
+    'upload.php',         // Parent slug for Media
+    'Generate Alt Text',  // Page title
+    'Generate Alt Text',  // Menu title
     'manage_options',
-    'altly-settings',
+    'altly',     // Page slug
     'altly_render_admin_page'
   );
 }
@@ -83,7 +85,8 @@ function altly_render_admin_page() {
  * Enqueue admin scripts and styles on our settings page.
  */
 function altly_enqueue_admin_scripts($hook) {
-  if ('tools_page_altly-settings' !== $hook) {
+  // The hook for a submenu under Media is "upload_page_altly"
+  if ('media_page_altly' !== $hook) {
     return;
   }
 
@@ -393,7 +396,6 @@ function altly_clear_all_alt_text() {
     'message' => 'All image alt text has been cleared.',
   ));
 }
-
 
 add_action('rest_api_init', function () {
   register_rest_route('altly/v1', '/clear-queue', array(

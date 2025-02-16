@@ -5,15 +5,13 @@ Tags: accessibility, alt text, AI, images, seo
 Requires at least: 5.6
 Tested up to: 6.7
 Requires PHP: 7.2
-Stable tag: 1.0.0
+Stable tag: 0.0.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Altly - AI Text Generator automatically generates detailed, descriptive alt text for your images using artificial intelligence.
+Altly is a cutting-edge plugin that seamlessly integrates Altly’s AI-powered alt text generation into your WordPress website, transforming your media library into an accessibility and SEO asset.
 
 == Description ==
-Altly - AI Text Generator automatically generates detailed, descriptive alt text for your images using artificial intelligence. 
-Improve your site's accessibility and SEO without the hassle of manually writing alt attributes. Once configured, the plugin 
-scans your media library for images missing alt text and generates optimized descriptions using a cutting-edge AI API.
+Altly is a cutting-edge plugin that seamlessly integrates Altly’s AI-powered alt text generation into your WordPress website, transforming your media library into an accessibility and SEO asset. By automatically creating detailed, optimized alt text without overwriting your existing content—and allowing for manual adjustments when needed—Altly saves you time, ensures compliance with accessibility standards, and boosts your site’s search engine performance.
 
 == Installation ==
 1. Upload the plugin files to the `/wp-content/plugins/altly-ai-text-generator` directory, or install the plugin through 
