@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Altly - AI Text Generator
  * Description: Generates detailed alt text for images using AI.
- * Version: 0.0.1
+ * Version: 0.1.0
  * Author: Prolific Digital
  * Author URI: https://altly.ai
  * Text Domain: altly
@@ -121,9 +121,12 @@ function altly_enqueue_admin_scripts($hook) {
 
   // Pass necessary settings to our React app.
   wp_localize_script('altly-admin-script', 'AltlySettings', array(
-    'apiKey'  => get_option('altly_license_key', ''),
-    'restUrl' => esc_url_raw(rest_url('altly/v1/')),
-    'nonce'   => wp_create_nonce('wp_rest'),
+    'apiKey'      => get_option('altly_license_key', ''),
+    'restUrl'     => esc_url_raw(rest_url('altly/v1/')),
+    'nonce'       => wp_create_nonce('wp_rest'),
+    // Account-level default speed tier ("instant" | "relaxed"). Sent as the
+    // `mode` field on uploads; per-run toggle can override it.
+    'defaultMode' => get_option('altly_default_mode', 'instant'),
   ));
 }
 add_action('admin_enqueue_scripts', 'altly_enqueue_admin_scripts');
@@ -155,6 +158,15 @@ add_action('rest_api_init', function () {
   register_rest_route('altly/v1', '/save-key', array(
     'methods'             => 'POST',
     'callback'            => 'altly_save_license_key',
+    'permission_callback' => function () {
+      return current_user_can('manage_options');
+    },
+  ));
+
+  // Endpoint: Save the account default generation speed ("instant" | "relaxed").
+  register_rest_route('altly/v1', '/save-mode', array(
+    'methods'             => 'POST',
+    'callback'            => 'altly_save_default_mode',
     'permission_callback' => function () {
       return current_user_can('manage_options');
     },
@@ -468,6 +480,22 @@ function altly_save_license_key($request) {
 
   update_option('altly_license_key', sanitize_text_field($params['licenseKey']));
   return rest_ensure_response(array('success' => true, 'message' => 'License key saved.'));
+}
+
+/**
+ * Callback to save the account default generation speed.
+ */
+function altly_save_default_mode($request) {
+  if (! altly_verify_rest_nonce()) {
+    return new WP_Error('rest_forbidden', __('Nonce verification failed.', 'altly'), array('status' => 403));
+  }
+  $params = $request->get_json_params();
+  $mode   = isset($params['mode']) ? sanitize_text_field($params['mode']) : 'instant';
+  if (! in_array($mode, array('instant', 'relaxed'), true)) {
+    $mode = 'instant';
+  }
+  update_option('altly_default_mode', $mode);
+  return rest_ensure_response(array('success' => true, 'mode' => $mode));
 }
 
 /**

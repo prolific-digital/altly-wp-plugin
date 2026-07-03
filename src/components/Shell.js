@@ -31,6 +31,12 @@ export default function Shell() {
   const [userCredits, setUserCredits] = useState("N/A");
   const [bulkProgress, setBulkProgress] = useState(0);
   const [queuedCount, setQueuedCount] = useState(0);
+  // Per-run speed tier, seeded from the account default. "instant" = faster,
+  // costs more credits; "relaxed" = batch, cheaper.
+  const [mode, setMode] = useState(
+    (typeof AltlySettings !== "undefined" && AltlySettings.defaultMode) ||
+      "instant"
+  );
 
   const itemsPerPage = 12;
 
@@ -141,6 +147,7 @@ export default function Shell() {
           formData.append("platform_url", window.location.origin);
           formData.append("api_key", AltlySettings.apiKey);
           formData.append("image_id", image.id);
+          formData.append("mode", mode);
 
           const resQueue = await fetch(API_QUEUE_URL, {
             method: "POST",
@@ -330,7 +337,23 @@ export default function Shell() {
                   {bulkMessage}
                 </p>
               )}
-              <div className="flex justify-end mb-4 space-x-2">
+              <div className="flex justify-end items-center mb-4 space-x-2">
+                <label
+                  htmlFor="altly-mode"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  Speed
+                </label>
+                <select
+                  id="altly-mode"
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value)}
+                  disabled={bulkGenerating}
+                  className="rounded-md border-gray-300 py-2 pl-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="instant">Instant (faster, more credits)</option>
+                  <option value="relaxed">Relaxed (cheaper, slower)</option>
+                </select>
                 <button
                   onClick={handleBulkGenerate}
                   disabled={bulkGenerating || allQueued}

@@ -10,6 +10,11 @@ export default function Settings({ onUpdateCredits }) {
   const [loading, setLoading] = useState(false);
   const [clearingAlt, setClearingAlt] = useState(false);
   const [clearMessage, setClearMessage] = useState("");
+  const [defaultMode, setDefaultMode] = useState(
+    (typeof AltlySettings !== "undefined" && AltlySettings.defaultMode) ||
+      "instant"
+  );
+  const [modeMessage, setModeMessage] = useState("");
 
   const validateApiKey = (key) => key && key.trim().length > 0;
 
@@ -70,6 +75,28 @@ export default function Settings({ onUpdateCredits }) {
       setError("An error occurred while saving the API key.");
     }
     setLoading(false);
+  };
+
+  const handleModeChange = async (newMode) => {
+    setDefaultMode(newMode);
+    setModeMessage("");
+    try {
+      const res = await fetch(AltlySettings.restUrl + "save-mode", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-WP-Nonce": AltlySettings.nonce,
+        },
+        body: JSON.stringify({ mode: newMode }),
+      });
+      const data = await res.json();
+      setModeMessage(
+        data.success ? "Default speed saved." : "Failed to save default speed."
+      );
+    } catch (error) {
+      console.error("Error saving default speed:", error);
+      setModeMessage("An error occurred while saving the default speed.");
+    }
   };
 
   const handleClearAltText = async () => {
@@ -146,6 +173,31 @@ export default function Settings({ onUpdateCredits }) {
           >
             {loading ? "Saving..." : "Save"}
           </button>
+        </div>
+
+        {/* Default Generation Speed */}
+        <div className="mt-8 border-t border-gray-200 pt-6">
+          <h2 className="text-base font-semibold text-gray-900">
+            Default Generation Speed
+          </h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Instant returns alt text faster and costs more credits. Relaxed uses
+            batch processing — cheaper, but results arrive later. This is the
+            default for new runs; you can override it per run on the dashboard.
+          </p>
+          <div className="mt-4 max-w-xs">
+            <select
+              value={defaultMode}
+              onChange={(e) => handleModeChange(e.target.value)}
+              className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 outline-gray-300 focus:outline-2 focus:outline-indigo-600"
+            >
+              <option value="instant">Instant (faster, more credits)</option>
+              <option value="relaxed">Relaxed (cheaper, slower)</option>
+            </select>
+          </div>
+          {modeMessage && (
+            <p className="mt-2 text-sm text-gray-700">{modeMessage}</p>
+          )}
         </div>
 
         {/* Clear Alt Text Button */}
