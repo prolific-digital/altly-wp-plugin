@@ -3,3 +3,8 @@ node_modules
 .env.*
 *.zip
 build/*
+e2e/.artifacts/
+e2e/fixtures/
+test-results/
+playwright-report/
+.playwright/

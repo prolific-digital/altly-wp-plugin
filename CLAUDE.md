@@ -125,5 +125,14 @@ them rather than assuming.
 - Only `image/jpeg` and `image/png` attachments are queried as "missing alt"; the images list
   treats empty-string alt as missing too.
 - Active development happens on feature branches (current: `feat/vision-claude-migration`).
-</content>
-</invoke>
+
+## Delegate to the repo subagent
+
+**Non-trivial work in this repo MUST be dispatched to the `altly-wp-plugin-expert`
+subagent** (via the Task tool) rather than edited directly, so the load-bearing rules
+above (only the JS `Shell.js handleBulkGenerate` path is live — the PHP `bulk-generate`
+is dead; the invariant `receive-alt` contract; rebuild with `yarn build` after `src/`
+edits; keep `altly.php` constants and `.env` `REACT_APP_*` on `api.altly.io`; `mode`
+defaults to Instant for backward-compat) are always applied. Only trivial one-line or doc
+edits may bypass it. The subagent and a matching `altly-wp-plugin` skill live in
+`.claude/`.
