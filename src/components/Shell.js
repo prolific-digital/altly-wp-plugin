@@ -143,7 +143,9 @@ export default function Shell() {
           const formData = new FormData();
           const filename = image.filePath.split("/").pop();
           formData.append("file", blob, filename);
-          formData.append("platform_id", "sandbox");
+          // Identify the platform by the site's host (was the "sandbox"
+          // placeholder). platform_url below carries the full origin.
+          formData.append("platform_id", window.location.host);
           formData.append("platform_url", window.location.origin);
           formData.append("api_key", AltlySettings.apiKey);
           formData.append("image_id", image.id);

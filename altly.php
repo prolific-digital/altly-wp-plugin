@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Altly - AI Text Generator
  * Description: Generates detailed alt text for images using AI.
- * Version: 0.1.0
+ * Version: 1.0.0
  * Author: Prolific Digital
  * Author URI: https://altly.ai
  * Text Domain: altly
@@ -20,8 +20,8 @@ if (! defined('ABSPATH')) {
 // Define plugin directory and API endpoints.
 define('ALTLY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ALTLY_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('ALTLY_API_VALIDATE_URL', 'https://api.altly.ai/v2/validate');
-define('ALTLY_API_QUEUE_URL', 'https://api.altly.ai/v2/queue');
+define('ALTLY_API_VALIDATE_URL', 'https://api.altly.io/v2/validate');
+define('ALTLY_API_QUEUE_URL', 'https://api.altly.io/v2/queue');
 
 /**
  * Plugin activation hook.
