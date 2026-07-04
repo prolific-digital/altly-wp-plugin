@@ -62,8 +62,10 @@ Per the README's "Setting Up the Server" steps:
 ## 4. Publish a package
 
 The README's packaging rule: the zip's name must be `<slug>.zip`, and the plugin files must
-sit inside a single top-level directory matching the slug (not at the zip root) — otherwise
-WordPress will install correctly on the update but never reactivate the plugin the same way.
+sit inside a single top-level directory matching the slug (not at the zip root). The README
+is explicit that a root-level zip breaks the install itself — "you will run into
+inexplicable problems when you try to install an update because WordPress expects plugin
+files to be inside a subdirectory."
 `yarn zip` in this repo now produces a single top-level `altly/` directory containing the
 vendored PUC (fixed in this branch's earlier commits), so it already matches this
 requirement.
@@ -97,10 +99,13 @@ curl 'https://updates.altly.io/?action=get_metadata&slug=altly'
 ```
 
 Expect a JSON document (README: "a JSON document containing various information about your
-plugin — name, version, description and so on"), generated automatically from the zip's
-`readme.txt` and the plugin file header — no manual metadata file to maintain. Confirm at
-minimum `name`, `version`, and `download_url` are present and `version` matches the just-
-published zip.
+plugin — name, version, description and so on"). wp-update-server / plugin-update-checker
+parse this metadata from the zip's plugin header and `readme.txt` at request time, so
+there's no manual metadata file to maintain — the README explicitly documents `readme.txt`
+as the source for the plugin details page, and header/readme parsing is the package's
+documented behavior rather than a line quoted verbatim from the README. Confirm at minimum
+`name`, `version`, and `download_url` are present and `version` matches the just-published
+zip.
 
 Then confirm the download itself resolves:
 
