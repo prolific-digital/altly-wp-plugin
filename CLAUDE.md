@@ -16,13 +16,21 @@ Request body (JSON):
 
 - `image_id` — Number. Cast with `intval()`; must be an existing `attachment` post.
 - `alt_text` — string. Run through `sanitize_text_field()`.
-- `api_key` — string. Compared for **exact equality** (`===`) against the stored
+- `api_key` — string. Compared with **constant-time `hash_equals()`** against the stored
   `altly_license_key` option. This is the entire auth — there is no nonce, no signature.
+  Two hardening gates run first: if the stored key is empty/unset the request is rejected
+  **403** (`not_configured`) before any compare — so a fresh/unconfigured site can't be
+  written to; and the target attachment must carry the persistent `_altly_managed` meta
+  (set at enqueue by `mark-queued`, never deleted) or the request is rejected **403**
+  (`not_managed`) — so a caller past the key gate can't rewrite alt on arbitrary media.
 
 On success the handler writes `update_post_meta($image_id, '_wp_attachment_image_alt', $alt_text)`
 (falling back to `add_post_meta`), then `delete_post_meta($image_id, '_altly_queued')` to clear
-the queued flag. `_wp_attachment_image_alt` is WordPress's standard alt-text meta key — that's
-why generated alt shows up in the Media Library.
+the **transient** in-flight flag. `_wp_attachment_image_alt` is WordPress's standard alt-text
+meta key — that's why generated alt shows up in the Media Library. Note the two markers differ:
+`_altly_queued` is transient (cleared on delivery; drives the admin UI's "queued" badge) while
+`_altly_managed` is permanent (the H-8 scope gate) — an idempotent webhook redelivery of an
+already-processed image therefore still returns 2xx.
 
 ## The real request path: JS is functional, PHP is legacy/dead
 

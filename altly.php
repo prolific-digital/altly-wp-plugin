@@ -312,8 +312,12 @@ function altly_mark_queued($request) {
     return new WP_Error('missing_image_id', 'Missing image ID', array('status' => 400));
   }
   $image_id = intval($params['image_id']);
-  // Mark the image as queued by setting a custom meta field.
+  // Transient in-flight flag: set here, cleared by receive-alt once alt lands.
   update_post_meta($image_id, '_altly_queued', true);
+  // Persistent "Altly manages this attachment" marker: never deleted, so an
+  // idempotent webhook redelivery of an already-processed image still passes the
+  // receive-alt scope gate (see altly_receive_alt_text).
+  update_post_meta($image_id, '_altly_managed', true);
   return rest_ensure_response(array('success' => true, 'message' => 'Image marked as queued.'));
 }
 
@@ -364,11 +368,13 @@ function altly_receive_alt_text(WP_REST_Request $request) {
     return new WP_Error('invalid_image', 'Invalid image ID', array('status' => 400));
   }
 
-  // Scope writes to attachments Altly actually queued. `_altly_queued` is set at
-  // enqueue time (altly/v1/mark-queued) and cleared below once alt text lands, so
-  // a caller past the key gate cannot rewrite alt text on arbitrary media.
-  if (! get_post_meta($image_id, '_altly_queued', true)) {
-    return new WP_Error('not_queued', 'Image was not queued by Altly', array('status' => 409));
+  // Scope writes to attachments Altly manages. `_altly_managed` is set once at
+  // enqueue time (altly/v1/mark-queued) and never deleted, so a caller past the
+  // key gate cannot rewrite alt text on arbitrary media, while an idempotent
+  // webhook redelivery of an already-processed image still passes (the transient
+  // `_altly_queued` flag may already be cleared — do not gate on it here).
+  if (! get_post_meta($image_id, '_altly_managed', true)) {
+    return new WP_Error('not_managed', 'Image is not managed by Altly', array('status' => 403));
   }
 
   $current_alt = get_post_meta($image_id, '_wp_attachment_image_alt', true);

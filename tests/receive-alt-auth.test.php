@@ -123,9 +123,9 @@ function reset_state($stored_key) {
     $GLOBALS['__options']['altly_license_key'] = $stored_key;
   }
   $GLOBALS['__posts'] = array(
-    // A normal attachment Altly queued.
+    // A normal attachment Altly manages.
     42 => (object) array('post_type' => 'attachment'),
-    // A non-Altly attachment (never queued) — the H-8 target.
+    // A non-Altly attachment (never managed) — the H-8 target.
     99 => (object) array('post_type' => 'attachment'),
   );
   $GLOBALS['__meta'] = array();
@@ -166,7 +166,7 @@ $r = altly_validate_api_key_for_receive_alt(new WP_REST_Request(array('api_key' 
 check('(b2) correct key passes (returns true)', $r === true);
 
 // ============================================================================
-// (c) Correct key but attachment was NOT queued by Altly -> reject.
+// (c) Correct key but attachment is NOT Altly-managed -> reject (H-8).
 // ============================================================================
 reset_state($REAL_KEY);
 $GLOBALS['__meta'][99] = array('_wp_attachment_image_alt' => 'legit human-authored alt');
@@ -175,8 +175,19 @@ $r = altly_receive_alt_text(new WP_REST_Request(array(
   'alt_text' => 'attacker overwrite',
   'api_key'  => $REAL_KEY,
 )));
-check('(c1) non-queued attachment write is rejected', $r instanceof WP_Error && $r->get_status() === 409);
-check('(c2) non-queued attachment alt text is left untouched', get_post_meta(99, '_wp_attachment_image_alt', true) === 'legit human-authored alt');
+check('(c1) non-managed attachment write is rejected 403', $r instanceof WP_Error && $r->get_status() === 403);
+check('(c2) non-managed attachment alt text is left untouched', get_post_meta(99, '_wp_attachment_image_alt', true) === 'legit human-authored alt');
+
+// A once-queued image whose transient flag was cleared but which was NEVER
+// _altly_managed must still be rejected (H-8 keys off the persistent marker).
+reset_state($REAL_KEY);
+$GLOBALS['__meta'][99] = array('_altly_queued' => true); // transient only, no _altly_managed
+$r = altly_receive_alt_text(new WP_REST_Request(array(
+  'image_id' => 99,
+  'alt_text' => 'x',
+  'api_key'  => $REAL_KEY,
+)));
+check('(c3) attachment lacking persistent _altly_managed is rejected 403', $r instanceof WP_Error && $r->get_status() === 403);
 
 // Non-existent / non-attachment id still rejected (unchanged behavior).
 reset_state($REAL_KEY);
@@ -185,21 +196,41 @@ $r = altly_receive_alt_text(new WP_REST_Request(array(
   'alt_text' => 'x',
   'api_key'  => $REAL_KEY,
 )));
-check('(c3) unknown image id rejected 400', $r instanceof WP_Error && $r->get_status() === 400);
+check('(c4) unknown image id rejected 400', $r instanceof WP_Error && $r->get_status() === 400);
 
 // ============================================================================
-// (d) Correct key + properly queued attachment -> success, alt written, flag cleared.
+// (d) Correct key + Altly-managed attachment -> success, alt written, transient cleared.
 // ============================================================================
 reset_state($REAL_KEY);
-$GLOBALS['__meta'][42] = array('_altly_queued' => true); // set by mark-queued at enqueue
+// State after enqueue: both markers set by mark-queued.
+$GLOBALS['__meta'][42] = array('_altly_managed' => true, '_altly_queued' => true);
 $r = altly_receive_alt_text(new WP_REST_Request(array(
   'image_id' => 42,
   'alt_text' => 'A red bicycle leaning on a brick wall',
   'api_key'  => $REAL_KEY,
 )));
-check('(d1) queued attachment write succeeds', is_array($r) && ! empty($r['success']));
+check('(d1) managed attachment write succeeds', is_array($r) && ! empty($r['success']));
 check('(d2) alt text is written to _wp_attachment_image_alt', get_post_meta(42, '_wp_attachment_image_alt', true) === 'A red bicycle leaning on a brick wall');
-check('(d3) _altly_queued flag is cleared after write', get_post_meta(42, '_altly_queued', true) === '');
+check('(d3) transient _altly_queued flag is cleared after write', get_post_meta(42, '_altly_queued', true) === '');
+check('(d4) persistent _altly_managed marker is retained after write', get_post_meta(42, '_altly_managed', true) === true);
+
+// ============================================================================
+// (e) Idempotent redelivery: _altly_queued already cleared, _altly_managed
+//     retained -> must still return 2xx (no 409), the whole point of the fix.
+// ============================================================================
+reset_state($REAL_KEY);
+// State after a prior successful delivery: managed retained, queued cleared, alt set.
+$GLOBALS['__meta'][42] = array(
+  '_altly_managed'            => true,
+  '_wp_attachment_image_alt'  => 'A red bicycle leaning on a brick wall',
+);
+$r = altly_receive_alt_text(new WP_REST_Request(array(
+  'image_id' => 42,
+  'alt_text' => 'A red bicycle leaning on a brick wall',
+  'api_key'  => $REAL_KEY,
+)));
+check('(e1) duplicate/retried delivery of a managed image returns 2xx (not 409)', is_array($r) && ! empty($r['success']));
+check('(e2) redelivery leaves alt text intact', get_post_meta(42, '_wp_attachment_image_alt', true) === 'A red bicycle leaning on a brick wall');
 
 // --- Result ----------------------------------------------------------------
 echo "\n{$passes} passed, {$failures} failed\n";
