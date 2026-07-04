@@ -11,7 +11,7 @@
  * Requires PHP: 7.2
  * License: GPL-2.0-or-later
  * Tested up to: 6.7
- * Update URI: https://updates.altly.io/
+ * Update URI: https://github.com/prolific-digital/altly-wp-plugin
  */
 
 if (! defined('ABSPATH')) {
@@ -29,12 +29,11 @@ if (! defined('ALTLY_API_BASE_URL')) {
 }
 define('ALTLY_API_VALIDATE_URL', ALTLY_API_BASE_URL . '/validate');
 define('ALTLY_API_QUEUE_URL', ALTLY_API_BASE_URL . '/queue');
-// Self-hosted update server (YahnisElsts/wp-update-server) that the vendored
-// plugin-update-checker below polls for new releases. Overridable by
-// pre-defining ALTLY_UPDATE_SERVER_URL (e.g. in wp-config.php for a local
-// zero-spend E2E run); defaults to prod.
-if (! defined('ALTLY_UPDATE_SERVER_URL')) {
-  define('ALTLY_UPDATE_SERVER_URL', 'https://updates.altly.io/');
+// GitHub repo (public) that the vendored plugin-update-checker below polls
+// for new Releases. Overridable by pre-defining ALTLY_UPDATE_REPO_URL (e.g.
+// in wp-config.php for a local zero-spend E2E run); defaults to prod.
+if (! defined('ALTLY_UPDATE_REPO_URL')) {
+  define('ALTLY_UPDATE_REPO_URL', 'https://github.com/prolific-digital/altly-wp-plugin/');
 }
 // Pull-model endpoints: this plugin polls for finished alt text and acks it.
 // There is no inbound push endpoint. See altly_sync_results() below.
@@ -48,22 +47,27 @@ define('ALTLY_API_RESULTS_ACK_URL', ALTLY_API_BASE_URL . '/results/ack');
  */
 define('ALTLY_SYNC_CRON_HOOK', 'altly_sync_results_cron');
 
-// Self-hosted auto-update: vendored plugin-update-checker (PUC v5) polls
-// ALTLY_UPDATE_SERVER_URL for new releases. Fails soft if the vendored lib is
-// missing so a stripped-down checkout still boots the rest of the plugin.
+// Auto-update via GitHub Releases: vendored plugin-update-checker (PUC v5)
+// polls ALTLY_UPDATE_REPO_URL (the public GitHub repo) for new Releases.
+// Fails soft if the vendored lib is missing so a stripped-down checkout
+// still boots the rest of the plugin.
 $altly_puc_loader = ALTLY_PLUGIN_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php';
 if (file_exists($altly_puc_loader)) {
   require_once $altly_puc_loader;
   if (class_exists('\\YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory')) {
-    $altly_metadata_url = apply_filters(
-      'altly_update_metadata_url',
-      rtrim(ALTLY_UPDATE_SERVER_URL, '/') . '/?action=get_metadata&slug=altly'
-    );
-    \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
-      $altly_metadata_url,
+    $altly_repo_url = apply_filters('altly_update_repo_url', ALTLY_UPDATE_REPO_URL);
+    $altly_update_checker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+      $altly_repo_url,
       __FILE__,
       'altly'
     );
+    // Public repo → no auth token needed (a PRIVATE repo would require
+    // ->setAuthentication('<token>'), which must NOT be embedded in a shipped plugin).
+    // Use the attached altly.zip release asset (correct `altly/` top-level dir), not
+    // GitHub's auto-generated source zip (which unpacks to a repo-tag/ dir = wrong slug).
+    if (method_exists($altly_update_checker, 'getVcsApi')) {
+      $altly_update_checker->getVcsApi()->enableReleaseAssets('/altly\.zip$/i');
+    }
   }
 }
 
