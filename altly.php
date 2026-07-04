@@ -11,6 +11,7 @@
  * Requires PHP: 7.2
  * License: GPL-2.0-or-later
  * Tested up to: 6.7
+ * Update URI: https://updates.altly.io/
  */
 
 if (! defined('ABSPATH')) {
@@ -28,6 +29,13 @@ if (! defined('ALTLY_API_BASE_URL')) {
 }
 define('ALTLY_API_VALIDATE_URL', ALTLY_API_BASE_URL . '/validate');
 define('ALTLY_API_QUEUE_URL', ALTLY_API_BASE_URL . '/queue');
+// Self-hosted update server (YahnisElsts/wp-update-server) that the vendored
+// plugin-update-checker below polls for new releases. Overridable by
+// pre-defining ALTLY_UPDATE_SERVER_URL (e.g. in wp-config.php for a local
+// zero-spend E2E run); defaults to prod.
+if (! defined('ALTLY_UPDATE_SERVER_URL')) {
+  define('ALTLY_UPDATE_SERVER_URL', 'https://updates.altly.io/');
+}
 // Pull-model endpoints: this plugin polls for finished alt text and acks it,
 // rather than relying on the API pushing back to receive-alt. See
 // altly_sync_results() below.
@@ -40,6 +48,25 @@ define('ALTLY_API_RESULTS_ACK_URL', ALTLY_API_BASE_URL . '/results/ack');
  * "Sync results") still pull finished alt text.
  */
 define('ALTLY_SYNC_CRON_HOOK', 'altly_sync_results_cron');
+
+// Self-hosted auto-update: vendored plugin-update-checker (PUC v5) polls
+// ALTLY_UPDATE_SERVER_URL for new releases. Fails soft if the vendored lib is
+// missing so a stripped-down checkout still boots the rest of the plugin.
+$altly_puc_loader = ALTLY_PLUGIN_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php';
+if (file_exists($altly_puc_loader)) {
+  require_once $altly_puc_loader;
+  if (class_exists('\\YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory')) {
+    $altly_metadata_url = apply_filters(
+      'altly_update_metadata_url',
+      rtrim(ALTLY_UPDATE_SERVER_URL, '/') . '/?action=get_metadata&slug=altly'
+    );
+    \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+      $altly_metadata_url,
+      __FILE__,
+      'altly'
+    );
+  }
+}
 
 /**
  * Plugin activation hook.

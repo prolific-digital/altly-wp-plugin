@@ -18,6 +18,18 @@
 if (! defined('ABSPATH')) {
   define('ABSPATH', __DIR__ . '/');
 }
+// altly.php's bootstrap now wires up the vendored plugin-update-checker at
+// require-time, which needs these two WP core constants to exist (real
+// WordPress always defines them before any plugin loads).
+if (! defined('WP_PLUGIN_DIR')) {
+  define('WP_PLUGIN_DIR', dirname(__DIR__));
+}
+if (! defined('WPMU_PLUGIN_DIR')) {
+  define('WPMU_PLUGIN_DIR', dirname(__DIR__) . '/mu-plugins');
+}
+if (! defined('WP_DEBUG')) {
+  define('WP_DEBUG', false);
+}
 
 // --- Mutable fake WordPress state -----------------------------------------
 $GLOBALS['__options'] = array();
@@ -38,6 +50,65 @@ function add_option($k, $v = '') {
 }
 function register_activation_hook($f, $cb) {}
 function add_action($hook, $cb, $priority = 10, $args = 1) {}
+function apply_filters($hook, $value) {
+  return $value;
+}
+// The rest of these are pulled in transitively by the vendored
+// plugin-update-checker's constructor (wired up at altly.php require-time as
+// of the self-hosted auto-update feature) — not touched by the receive-alt
+// assertions below, just needed so `require`ing altly.php doesn't fatal.
+function esc_html($s) {
+  return $s;
+}
+function plugin_basename($f) {
+  return basename(dirname($f)) . '/' . basename($f);
+}
+function add_filter($hook, $cb, $priority = 10, $args = 1) {}
+function did_action($hook) {
+  return 0;
+}
+function wp_installing() {
+  return false;
+}
+function is_admin() {
+  return false;
+}
+function wp_doing_ajax() {
+  return false;
+}
+function get_bloginfo($key = '') {
+  return '';
+}
+function wp_get_environment_type() {
+  return 'production';
+}
+function is_multisite() {
+  return false;
+}
+function wp_next_scheduled($hook, $args = array()) {
+  return false;
+}
+function wp_schedule_single_event($timestamp, $hook, $args = array()) {
+  return true;
+}
+function wp_schedule_event($timestamp, $recurrence, $hook, $args = array()) {
+  return true;
+}
+function wp_clear_scheduled_hook($hook, $args = array()) {
+  return true;
+}
+function get_site_transient($key) {
+  return false;
+}
+function set_site_transient($key, $value, $expiration = 0) {
+  return true;
+}
+function delete_site_transient($key) {
+  return true;
+}
+function current_user_can($capability) {
+  return false;
+}
 function get_option($k, $default = false) {
   return array_key_exists($k, $GLOBALS['__options']) ? $GLOBALS['__options'][$k] : $default;
 }
