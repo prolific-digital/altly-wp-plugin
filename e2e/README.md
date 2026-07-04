@@ -18,9 +18,9 @@ plugin admin UI end to end and proves the queue → worker → webhook flow, at
 Note: there is no push webhook — the plugin only pulls. The enqueue never sends a
 `platform_url` field at all, so the API always leaves finished rows for the plugin to
 pull from `/v2/results` and ack via `/v2/results/ack`.
-- **`poison.spec.js`** — two bad instant messages (a malformed `*.local`
-  `platform_id`, and one past the `read_ct` cap) are both **archived** with
-  **zero** model calls and **zero** credits spent.
+- **`poison.spec.js`** — two bad instant messages (one structurally malformed
+  — missing `image_url` — and one past the `read_ct` cap) are both **archived**
+  with **zero** model calls and **zero** credits spent.
 
 ## Prerequisites — the backend must already be running
 

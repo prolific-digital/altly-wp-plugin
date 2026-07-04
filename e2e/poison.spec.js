@@ -11,18 +11,17 @@ test("poison messages: both archived, zero AI calls, no credits spent", async ()
   const archivedBefore = await db.archivedCount(INSTANT_QUEUE);
   const creditsBefore = await db.creditsFor(ACCOUNT_ID);
 
-  // (a) Malformed platform_id (the real incident: a *.local host slipping in
-  //     via a raw hostname). Archived by the deliverability guard, no spend.
+  // (a) Structurally unprocessable (missing image_url): the worker's structural
+  //     guard archives it at step 2 — no image fetch, no model call, no spend.
+  //     (The old platform_url deliverability guard that caught the *.local
+  //     incident is gone with the push path.)
   await db.sendMessage(INSTANT_QUEUE, {
-    image_url:
-      "http://127.0.0.1:54521/storage/v1/object/public/images/" +
-      ACCOUNT_ID +
-      "/poison-undeliverable.jpg",
     user_id: ACCOUNT_ID,
     platform_id: "heparks-pro.local",
     api_key: LICENSE_KEY,
     image_id: 999001,
     mode: "instant",
+    // no image_url -> archived: "malformed"
   });
 
   // (b) Well-formed platform_id but read_ct pushed above the cap. Archived by
