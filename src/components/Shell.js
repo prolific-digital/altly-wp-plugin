@@ -31,6 +31,7 @@ export default function Shell() {
   const [userCredits, setUserCredits] = useState("N/A");
   const [bulkProgress, setBulkProgress] = useState(0);
   const [queuedCount, setQueuedCount] = useState(0);
+  const [syncing, setSyncing] = useState(false);
   // Per-run speed tier, seeded from the account default. "instant" = faster,
   // costs more credits; "relaxed" = batch, cheaper.
   const [mode, setMode] = useState(
@@ -143,10 +144,14 @@ export default function Shell() {
           const formData = new FormData();
           const filename = image.filePath.split("/").pop();
           formData.append("file", blob, filename);
-          // Identify the platform by the site's host (was the "sandbox"
-          // placeholder). platform_url below carries the full origin.
-          formData.append("platform_id", window.location.host);
-          formData.append("platform_url", window.location.origin);
+          // platform_id must be byte-identical to the value the PHP pull/ack
+          // path sends (AltlySettings.siteHost, derived server-side from
+          // home_url()). Do NOT use window.location.host — it carries the port
+          // and would diverge from the server value, and the API scopes queued
+          // rows by (user, platform_id). We intentionally send NO platform_url:
+          // its absence tells the API to skip the push webhook and leave the
+          // row for this plugin to pull via "Sync results" / the cron backstop.
+          formData.append("platform_id", AltlySettings.siteHost);
           formData.append("api_key", AltlySettings.apiKey);
           formData.append("image_id", image.id);
           formData.append("mode", mode);
@@ -192,6 +197,38 @@ export default function Shell() {
 
     setBulkGenerating(false);
     fetchImages(); // Refresh the dashboard.
+  };
+
+  // Handler for the "Sync results" button. Pulls finished alt text from the API
+  // and writes it to the Media Library (mirrors the wp-cron backstop). Same
+  // fetch shape as the other nonce-protected admin calls.
+  const handleSyncResults = async () => {
+    setSyncing(true);
+    setBulkMessage("");
+    try {
+      const res = await fetch(`${AltlySettings.restUrl}sync-results`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-WP-Nonce": AltlySettings.nonce,
+        },
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        setBulkMessage(
+          `Sync complete: ${data.written} alt text written, ${data.acked} acknowledged.` +
+            (data.capped ? " More results remain — run again." : "")
+        );
+        fetchImages();
+        fetchCredits();
+      } else {
+        setBulkMessage("Failed to sync results.");
+      }
+    } catch (error) {
+      console.error("Error syncing results:", error);
+      setBulkMessage("Error syncing results.");
+    }
+    setSyncing(false);
   };
 
   // Handler for Clear Queue button.
@@ -358,9 +395,9 @@ export default function Shell() {
                 </select>
                 <button
                   onClick={handleBulkGenerate}
-                  disabled={bulkGenerating || allQueued}
+                  disabled={bulkGenerating || syncing || allQueued}
                   className={`rounded-md px-4 py-2 text-sm font-semibold focus:outline-none ${
-                    bulkGenerating || allQueued
+                    bulkGenerating || syncing || allQueued
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-green-600 hover:bg-green-500 text-white"
                   }`}
@@ -368,8 +405,19 @@ export default function Shell() {
                   {bulkGenerating ? "Bulk generating..." : "Bulk Generate"}
                 </button>
                 <button
+                  onClick={handleSyncResults}
+                  disabled={bulkGenerating || syncing}
+                  className={`rounded-md px-4 py-2 text-sm font-semibold focus:outline-none ${
+                    bulkGenerating || syncing
+                      ? "bg-gray-400 cursor-not-allowed text-white"
+                      : "bg-indigo-600 hover:bg-indigo-500 text-white"
+                  }`}
+                >
+                  {syncing ? "Syncing..." : "Sync results"}
+                </button>
+                <button
                   onClick={handleClearQueue}
-                  disabled={bulkGenerating}
+                  disabled={bulkGenerating || syncing}
                   className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 focus:outline-none"
                 >
                   Clear Queue

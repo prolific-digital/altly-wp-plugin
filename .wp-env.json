@@ -6,6 +6,7 @@
   "config": {
     "WP_DEBUG": true,
     "WP_DEBUG_LOG": true,
-    "SCRIPT_DEBUG": true
+    "SCRIPT_DEBUG": true,
+    "ALTLY_API_BASE_URL": "http://host.docker.internal:3000/v2"
   }
 }

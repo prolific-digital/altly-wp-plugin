@@ -75,6 +75,18 @@ async function openAltly(page) {
   await page.waitForSelector("#altly-mode", { timeout: 30_000 });
 }
 
+/**
+ * Run the plugin's pull-sync wp-cron event (altly_sync_results_cron) via wp-cli.
+ * This is how finished alt text lands in WordPress now that the plugin pulls
+ * from /v2/results instead of relying on the API's push webhook. Returns the
+ * wp-cli output (best-effort; allowFail so a benign "no events" doesn't abort).
+ */
+function syncResults() {
+  return wpCli(["cron", "event", "run", "altly_sync_results_cron"], {
+    allowFail: true,
+  });
+}
+
 /** Trigger an API cron route with the CRON_SECRET bearer header. */
 async function runCron(pathname) {
   const res = await fetch(`${API_BASE}${pathname}`, {
@@ -103,6 +115,7 @@ module.exports = {
   login,
   openAltly,
   runCron,
+  syncResults,
   resetMock,
   mockStats,
 };

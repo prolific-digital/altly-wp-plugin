@@ -20,16 +20,80 @@ if (! defined('ABSPATH')) {
 // Define plugin directory and API endpoints.
 define('ALTLY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ALTLY_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('ALTLY_API_VALIDATE_URL', 'https://api.altly.io/v2/validate');
-define('ALTLY_API_QUEUE_URL', 'https://api.altly.io/v2/queue');
+// Single API base so every v2 endpoint stays on one host (keeps the API host in
+// sync — never split hosts). Overridable by pre-defining ALTLY_API_BASE_URL
+// (e.g. in wp-config.php for a local zero-spend E2E run); defaults to prod.
+if (! defined('ALTLY_API_BASE_URL')) {
+  define('ALTLY_API_BASE_URL', 'https://api.altly.io/v2');
+}
+define('ALTLY_API_VALIDATE_URL', ALTLY_API_BASE_URL . '/validate');
+define('ALTLY_API_QUEUE_URL', ALTLY_API_BASE_URL . '/queue');
+// Pull-model endpoints: this plugin polls for finished alt text and acks it,
+// rather than relying on the API pushing back to receive-alt. See
+// altly_sync_results() below.
+define('ALTLY_API_RESULTS_URL', ALTLY_API_BASE_URL . '/results');
+define('ALTLY_API_RESULTS_ACK_URL', ALTLY_API_BASE_URL . '/results/ack');
+
+/**
+ * The wp-cron hook name for the pull backstop. A recurring event runs
+ * altly_sync_results() so low-traffic sites (and sites whose admin never clicks
+ * "Sync results") still pull finished alt text.
+ */
+define('ALTLY_SYNC_CRON_HOOK', 'altly_sync_results_cron');
 
 /**
  * Plugin activation hook.
  */
 function altly_activate() {
   add_option('altly_license_key', '');
+  altly_ensure_sync_cron();
 }
 register_activation_hook(__FILE__, 'altly_activate');
+
+/**
+ * Plugin deactivation hook: tear down the recurring pull event.
+ */
+function altly_deactivate() {
+  wp_clear_scheduled_hook(ALTLY_SYNC_CRON_HOOK);
+}
+register_deactivation_hook(__FILE__, 'altly_deactivate');
+
+/**
+ * Register the recurring pull event if it isn't already scheduled. Guards
+ * against double-registration via wp_next_scheduled(). Called on activation and
+ * on init, so installs updated in place (activation hook doesn't re-run on a
+ * plugin update) still get the cron scheduled.
+ */
+function altly_ensure_sync_cron() {
+  if (! wp_next_scheduled(ALTLY_SYNC_CRON_HOOK)) {
+    wp_schedule_event(time(), 'hourly', ALTLY_SYNC_CRON_HOOK);
+  }
+}
+add_action('init', 'altly_ensure_sync_cron');
+
+// The recurring event pulls finished alt text. altly_sync_results() no-ops
+// cleanly when no license key is configured.
+add_action(ALTLY_SYNC_CRON_HOOK, 'altly_sync_results');
+
+/**
+ * Canonical site host, derived server-side from home_url(). This is the single
+ * source of truth for `platform_id` — it MUST be byte-identical on both the
+ * browser enqueue (localized as AltlySettings.siteHost) and the server-side
+ * pull/ack requests, because the API scopes queued rows by (user, platform_id).
+ * If the two ever diverge, pull silently returns nothing.
+ *
+ * MULTISITE LIMITATION: on a WordPress *subdirectory* multisite, every subsite
+ * shares one host, so this returns the same value for all of them. Subsites that
+ * share one Altly license key therefore collide on (user_id, platform_id) — and
+ * because the API normalizes platform_id to host-only (any path is stripped), a
+ * path-based distinguisher cannot fix it. Such installs MUST use a SEPARATE
+ * Altly license key per subsite. Subdomain multisite and single-site installs
+ * are unaffected (each has a distinct host).
+ */
+function altly_site_host() {
+  $host = wp_parse_url(home_url(), PHP_URL_HOST);
+  return $host ? $host : '';
+}
 
 /**
  * Display admin notice after activation if no license key is set.
@@ -127,6 +191,12 @@ function altly_enqueue_admin_scripts($hook) {
     // Account-level default speed tier ("instant" | "relaxed"). Sent as the
     // `mode` field on uploads; per-run toggle can override it.
     'defaultMode' => get_option('altly_default_mode', 'instant'),
+    // Canonical, server-derived site host. The browser enqueue sends this as
+    // `platform_id` so it is byte-identical to the value the PHP pull/ack path
+    // uses (altly_site_host()). Do NOT swap this back to window.location.host —
+    // that carries the port and would diverge from the server value, and the
+    // API scopes queued rows by (user, platform_id).
+    'siteHost'    => altly_site_host(),
   ));
 }
 add_action('admin_enqueue_scripts', 'altly_enqueue_admin_scripts');
@@ -172,10 +242,10 @@ add_action('rest_api_init', function () {
     },
   ));
 
-  // Endpoint: Bulk generate alt text.
-  register_rest_route('altly/v1', '/bulk-generate', array(
+  // Endpoint: Pull finished alt text from the API and write it locally.
+  register_rest_route('altly/v1', '/sync-results', array(
     'methods'             => 'POST',
-    'callback'            => 'altly_bulk_generate',
+    'callback'            => 'altly_sync_results_endpoint',
     'permission_callback' => function () {
       return current_user_can('manage_options');
     },
@@ -350,6 +420,58 @@ function altly_validate_api_key_for_receive_alt(WP_REST_Request $request) {
   return hash_equals((string) $stored_key, (string) $provided_key);
 }
 
+/**
+ * The single, shared alt-text write path used by BOTH the push webhook
+ * (receive-alt) and the pull job (altly_sync_results). Enforces the persistent
+ * `_altly_managed` scope gate, writes WordPress's standard
+ * `_wp_attachment_image_alt` meta, and clears the transient `_altly_queued`
+ * in-flight flag.
+ *
+ * Returns true on success (including the idempotent "alt already matches" case),
+ * or a WP_Error on failure:
+ *   - invalid_image (400): id is not an existing attachment.
+ *   - not_managed   (403): attachment lacks the `_altly_managed` marker (H-8).
+ *   - update_failed (500): the meta write failed.
+ *
+ * @param int    $attachment_id WordPress attachment id.
+ * @param string $alt_text      Alt text to store.
+ * @return true|WP_Error
+ */
+function altly_write_alt_text($attachment_id, $alt_text) {
+  $attachment_id = intval($attachment_id);
+  $alt_text      = sanitize_text_field($alt_text);
+
+  // Verify that the image exists and is an attachment.
+  $image_post = get_post($attachment_id);
+  if (! $image_post || $image_post->post_type !== 'attachment') {
+    return new WP_Error('invalid_image', 'Invalid image ID', array('status' => 400));
+  }
+
+  // Scope writes to attachments Altly manages. `_altly_managed` is set once at
+  // enqueue time (altly/v1/mark-queued) and never deleted, so a caller past the
+  // key gate cannot rewrite alt text on arbitrary media, while an idempotent
+  // redelivery of an already-processed image still passes (the transient
+  // `_altly_queued` flag may already be cleared — do not gate on it here).
+  if (! get_post_meta($attachment_id, '_altly_managed', true)) {
+    return new WP_Error('not_managed', 'Image is not managed by Altly', array('status' => 403));
+  }
+
+  $current_alt = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+  if ($current_alt !== $alt_text) {
+    $updated = update_post_meta($attachment_id, '_wp_attachment_image_alt', $alt_text);
+    if ($updated === false) {
+      $added = add_post_meta($attachment_id, '_wp_attachment_image_alt', $alt_text, true);
+      if (! $added) {
+        return new WP_Error('update_failed', 'Failed to update alt text', array('status' => 500));
+      }
+    }
+  }
+
+  // Remove the transient queue meta now that the alt text is updated.
+  delete_post_meta($attachment_id, '_altly_queued');
+  return true;
+}
+
 function altly_receive_alt_text(WP_REST_Request $request) {
   $params = $request->get_json_params();
   if (empty($params)) {
@@ -359,39 +481,199 @@ function altly_receive_alt_text(WP_REST_Request $request) {
   if (! isset($params['image_id']) || ! isset($params['alt_text']) || ! isset($params['api_key'])) {
     return new WP_Error('missing_params', 'Missing parameters', array('status' => 400));
   }
-  $image_id = intval($params['image_id']);
-  $alt_text = sanitize_text_field($params['alt_text']);
 
-  // Verify that the image exists and is an attachment.
-  $image_post = get_post($image_id);
-  if (! $image_post || $image_post->post_type !== 'attachment') {
-    return new WP_Error('invalid_image', 'Invalid image ID', array('status' => 400));
+  // Delegate to the shared write path (same logic the pull job uses).
+  $result = altly_write_alt_text($params['image_id'], $params['alt_text']);
+  if (is_wp_error($result)) {
+    return $result;
+  }
+  return rest_ensure_response(array('success' => true, 'message' => 'Alt text updated.'));
+}
+
+/**
+ * REST callback for the admin "Sync results" button. Nonce + manage_options
+ * gated (registered above). Runs the pull job and returns a summary.
+ */
+function altly_sync_results_endpoint(WP_REST_Request $request) {
+  if (! altly_verify_rest_nonce()) {
+    return new WP_Error('rest_forbidden', __('Nonce verification failed.', 'altly'), array('status' => 403));
+  }
+  $result = altly_sync_results();
+  if (is_wp_error($result)) {
+    return $result;
+  }
+  return rest_ensure_response($result);
+}
+
+/**
+ * Pull-model sync: fetch finished alt text from the API and write it locally.
+ *
+ * Each cycle GETs a page from /v2/results with NO `after` cursor, writes every
+ * row through the shared altly_write_alt_text(), then acks the ids it DRAINED
+ * this page. Writing before acking gives at-least-once delivery: a crash between
+ * the two just re-serves the row on the next pull (the shared write is
+ * idempotent). Acked rows flip to delivered server-side and drop out of the
+ * results filter, so the next no-cursor pull returns the next batch — we never
+ * persist a cursor (which would risk skipping rows).
+ *
+ * A row is drained (acked) when it is WRITTEN or is a PERMANENT local failure —
+ * `invalid_image` (attachment deleted), `not_managed`, or empty/non-string
+ * alt_text. Draining permanent failures is essential: the pull is no-cursor and
+ * the API serves oldest-first, so an un-acked permanent failure would pin the
+ * head of every future page (and hard-block writable rows behind it once >=500
+ * accumulate). Only the transient `update_failed` (500) is left un-acked, to be
+ * retried on a later run. Stops when a page is empty or has no drainable rows;
+ * capped at ALTLY_SYNC_MAX_PAGES to avoid a runaway loop.
+ *
+ * Never fatals: non-200 / transport errors are logged and end the run cleanly.
+ *
+ * @return array{success:bool,written:int,acked:int,pages:int,capped:bool}|WP_Error
+ */
+function altly_sync_results() {
+  $license_key = get_option('altly_license_key', '');
+  if (empty($license_key)) {
+    return new WP_Error('no_license', 'No license key found', array('status' => 400));
   }
 
-  // Scope writes to attachments Altly manages. `_altly_managed` is set once at
-  // enqueue time (altly/v1/mark-queued) and never deleted, so a caller past the
-  // key gate cannot rewrite alt text on arbitrary media, while an idempotent
-  // webhook redelivery of an already-processed image still passes (the transient
-  // `_altly_queued` flag may already be cleared — do not gate on it here).
-  if (! get_post_meta($image_id, '_altly_managed', true)) {
-    return new WP_Error('not_managed', 'Image is not managed by Altly', array('status' => 403));
+  $platform_id = altly_site_host();
+  if (empty($platform_id)) {
+    return new WP_Error('no_platform_id', 'Could not derive site host', array('status' => 500));
   }
 
-  $current_alt = get_post_meta($image_id, '_wp_attachment_image_alt', true);
-  if ($current_alt !== $alt_text) {
-    $updated = update_post_meta($image_id, '_wp_attachment_image_alt', $alt_text);
-    if ($updated === false) {
-      $added = add_post_meta($image_id, '_wp_attachment_image_alt', $alt_text, true);
-      if (! $added) {
-        return new WP_Error('update_failed', 'Failed to update alt text', array('status' => 500));
+  $max_pages = defined('ALTLY_SYNC_MAX_PAGES') ? ALTLY_SYNC_MAX_PAGES : 50;
+  $written   = 0;
+  $acked     = 0;
+  $pages     = 0;
+  $capped    = false;
+
+  while (true) {
+    if ($pages >= $max_pages) {
+      $capped = true;
+      error_log('[altly] sync-results hit the page cap (' . $max_pages . '); more results may remain — next run continues.');
+      break;
+    }
+
+    $url = add_query_arg(
+      array('platform_id' => $platform_id, 'limit' => 500),
+      ALTLY_API_RESULTS_URL
+    );
+    $response = wp_remote_get($url, array(
+      'headers' => array('Authorization' => 'Bearer ' . $license_key),
+      'timeout' => 20,
+    ));
+
+    if (is_wp_error($response)) {
+      error_log('[altly] sync-results GET failed: ' . $response->get_error_message());
+      break;
+    }
+    $code = wp_remote_retrieve_response_code($response);
+    if (200 !== (int) $code) {
+      error_log('[altly] sync-results GET returned HTTP ' . $code . '; aborting run.');
+      break;
+    }
+
+    $body    = json_decode(wp_remote_retrieve_body($response), true);
+    $results = (is_array($body) && isset($body['results']) && is_array($body['results'])) ? $body['results'] : array();
+    if (empty($results)) {
+      break; // Nothing left to pull.
+    }
+
+    // Ids to ack this page. A row is DRAINED (acked so the API flips it
+    // delivered and stops re-serving it) when it is either written OR a
+    // PERMANENT local failure. Because the pull is no-cursor and the API serves
+    // oldest-first, an un-acked permanent failure would pin the head of every
+    // future page — wasting budget and, once >=500 accumulate, hard-blocking all
+    // writable rows behind it. Only the transient `update_failed` (500) is left
+    // un-acked so at-least-once retry can pick it up next run.
+    $ack_ids = array();
+    foreach ($results as $row) {
+      if (! is_array($row) || ! isset($row['wp_attachment_id'])) {
+        continue;
+      }
+      $aid = intval($row['wp_attachment_id']);
+      $alt = isset($row['alt_text']) ? $row['alt_text'] : null;
+
+      // Guard empty/non-string alt: never blank existing (possibly
+      // human-authored) alt, and never hand a non-string to sanitize. Treat as
+      // a permanent row for this pull — drain it so it can't clog the queue.
+      if (! is_string($alt) || '' === trim($alt)) {
+        error_log('[altly] sync-results draining attachment ' . $aid . ': empty/invalid alt_text');
+        $ack_ids[] = $aid;
+        continue;
+      }
+
+      $res = altly_write_alt_text($aid, $alt);
+      if (true === $res) {
+        $written++;
+        $ack_ids[] = $aid;
+      } elseif (in_array($res->get_error_code(), array('invalid_image', 'not_managed'), true)) {
+        // Permanent: attachment gone locally, or not Altly-managed. Never
+        // writable here — drain it so it stops pinning the head of the queue.
+        error_log('[altly] sync-results draining attachment ' . $aid . ': ' . $res->get_error_code());
+        $ack_ids[] = $aid;
+      } else {
+        // Transient (update_failed / 500): leave un-acked for next-run retry.
+        error_log('[altly] sync-results transient write failure for attachment ' . $aid . ': ' . $res->get_error_code());
       }
     }
+
+    // Nothing drainable on a non-empty page (only transient failures) means the
+    // next no-cursor pull would return the identical page — stop to avoid
+    // spinning; the transient rows retry on a later run.
+    if (empty($ack_ids)) {
+      error_log('[altly] sync-results page had no drainable rows; stopping to avoid a no-progress loop.');
+      break;
+    }
+
+    // At-least-once: ack (written + permanently-drained) AFTER writing.
+    $ack = altly_ack_results($ack_ids, $platform_id, $license_key);
+    if (is_wp_error($ack)) {
+      error_log('[altly] sync-results ack failed: ' . $ack->get_error_message() . '; stopping run.');
+      break;
+    }
+    $acked += (int) $ack;
+    $pages++;
   }
 
-  // Remove the queue meta now that the alt text is updated.
-  delete_post_meta($image_id, '_altly_queued');
-  $final_alt = get_post_meta($image_id, '_wp_attachment_image_alt', true);
-  return rest_ensure_response(array('success' => true, 'message' => 'Alt text updated.'));
+  return array(
+    'success' => true,
+    'written' => $written,
+    'acked'   => $acked,
+    'pages'   => $pages,
+    'capped'  => $capped,
+  );
+}
+
+/**
+ * POST the ids we just wrote to /v2/results/ack so the API marks them delivered.
+ * Body max is 500 ids (our page limit), matching the contract.
+ *
+ * @return int|WP_Error Number acked, or WP_Error on transport / non-200.
+ */
+function altly_ack_results($ids, $platform_id, $license_key) {
+  $ids = array_values(array_map('intval', $ids));
+  if (empty($ids)) {
+    return 0;
+  }
+  $url      = add_query_arg(array('platform_id' => $platform_id), ALTLY_API_RESULTS_ACK_URL);
+  $response = wp_remote_post($url, array(
+    'headers' => array(
+      'Authorization' => 'Bearer ' . $license_key,
+      'Content-Type'  => 'application/json',
+    ),
+    'body'    => wp_json_encode(array('wp_attachment_ids' => $ids)),
+    'timeout' => 20,
+  ));
+
+  if (is_wp_error($response)) {
+    return $response;
+  }
+  $code = wp_remote_retrieve_response_code($response);
+  if (200 !== (int) $code) {
+    return new WP_Error('ack_failed', 'Ack returned HTTP ' . $code, array('status' => $code));
+  }
+  $body = json_decode(wp_remote_retrieve_body($response), true);
+  return (is_array($body) && isset($body['acked'])) ? intval($body['acked']) : 0;
 }
 
 add_action('rest_api_init', function () {
@@ -516,101 +798,5 @@ function altly_save_default_mode($request) {
   }
   update_option('altly_default_mode', $mode);
   return rest_ensure_response(array('success' => true, 'mode' => $mode));
-}
-
-/**
- * Callback for bulk generating alt text by sending images to the /v2/queue endpoint.
- */
-function altly_bulk_generate($request) {
-  if (! altly_verify_rest_nonce()) {
-    return new WP_Error('rest_forbidden', __('Nonce verification failed.', 'altly'), array('status' => 403));
-  }
-  $license_key = get_option('altly_license_key', '');
-  if (empty($license_key)) {
-    return new WP_Error('no_license', 'No license key found', array('status' => 400));
-  }
-
-  // Query images missing alt text.
-  $args   = array(
-    'post_type'      => 'attachment',
-    'post_mime_type' => 'image',
-    'posts_per_page' => -1,
-    'meta_query'     => array(
-      array(
-        'key'     => '_wp_attachment_image_alt',
-        'compare' => 'NOT EXISTS',
-      ),
-    ),
-  );
-  $query  = new WP_Query($args);
-  $images = $query->posts;
-  $results = array();
-
-  foreach ($images as $image) {
-    $file_path  = get_attached_file($image->ID);
-    $filetype   = wp_check_filetype($file_path);
-    $allowed_types = array('image/jpeg', 'image/png', 'image/jpg');
-
-    if (! in_array($filetype['type'], $allowed_types, true)) {
-      $results[] = array('id' => $image->ID, 'status' => 'skipped', 'reason' => 'Unsupported file type');
-      continue;
-    }
-
-    if (filesize($file_path) > 4 * 1024 * 1024) {
-      $results[] = array('id' => $image->ID, 'status' => 'skipped', 'reason' => 'File size exceeds 4MB limit');
-      continue;
-    }
-
-    // Prepare file for upload.
-    $file_contents = file_get_contents($file_path);
-    $filename      = basename($file_path);
-
-    // Build multipart/form-data body using WordPress helper.
-    $data = array(
-      array(
-        'name'     => 'file',
-        'contents' => $file_contents,
-        'filename' => $filename,
-        'headers'  => array('Content-Type' => $filetype['type']),
-      ),
-      array(
-        'name'     => 'platform_id',
-        'contents' => get_bloginfo('name'),
-      ),
-      array(
-        'name'     => 'platform_url',
-        'contents' => home_url(),
-      ),
-    );
-
-    $boundary = wp_generate_password(24, false);
-    $body     = wp_http_build_multi_part_body($data, $boundary);
-    $headers  = array(
-      'Content-Type'  => 'multipart/form-data; boundary=' . $boundary,
-      'Authorization' => 'Bearer ' . $license_key,
-    );
-
-    $args_post = array(
-      'method'  => 'POST',
-      'timeout' => 15,
-      'headers' => $headers,
-      'body'    => $body,
-    );
-
-    $response = wp_remote_post(ALTLY_API_QUEUE_URL, $args_post);
-    if (is_wp_error($response)) {
-      $results[] = array('id' => $image->ID, 'status' => 'failed', 'reason' => $response->get_error_message());
-    } else {
-      $response_body = wp_remote_retrieve_body($response);
-      $response_data = json_decode($response_body, true);
-      if (isset($response_data['success']) && $response_data['success'] === true) {
-        $results[] = array('id' => $image->ID, 'status' => 'queued', 'message' => $response_data['message']);
-      } else {
-        $results[] = array('id' => $image->ID, 'status' => 'failed', 'reason' => isset($response_data['error']) ? $response_data['error'] : 'Unknown error');
-      }
-    }
-  }
-
-  return rest_ensure_response($results);
 }
 ?>

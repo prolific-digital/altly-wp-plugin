@@ -8,6 +8,7 @@ const {
   isolateSingleMissing,
   getAltMeta,
   runCron,
+  syncResults,
   resetMock,
   mockStats,
 } = require("./helpers/wp");
@@ -81,8 +82,11 @@ test("instant tier: bulk generate -> process -> alt text written, 3 credits spen
   const creditsAfter = await db.creditsFor(ACCOUNT_ID);
   expect(creditsBefore - creditsAfter).toBe(INSTANT_CREDIT_COST);
 
+  // The plugin now PULLS finished alt text (no push webhook). Run the pull-sync
+  // cron each poll iteration until the WP attachment meta is populated.
   const altMeta = await pollUntil(
     async () => {
+      syncResults();
       const v = getAltMeta(target.id);
       return v && v.length > 0 ? v : null;
     },
