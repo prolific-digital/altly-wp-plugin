@@ -25,22 +25,24 @@ jobs:
         run: yarn zip
 
       - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Altly ${{ github.ref }}
+          name: Altly ${{ github.ref_name }}
           draft: false
           prerelease: false
+          files: altly.zip
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: altly.zip
-          asset_name: altly.zip
-          asset_content_type: application/zip
+      # --- Publish to self-hosted update server (DISABLED — manual for now) ---
+      # The wp-update-server that PUC polls for updates expects the release zip at
+      # a fixed path, e.g. packages/altly.zip. Today that file is uploaded there
+      # MANUALLY after a release is cut here. To automate it, add a step below that
+      # scp/rsyncs `altly.zip` to the update server, gated on an SSH deploy secret
+      # (e.g. `secrets.UPDATE_SERVER_SSH_KEY`) — do not enable until that secret
+      # exists and the target path is confirmed.
+      #
+      # - name: Publish package to update server
+      #   run: |
+      #     mkdir -p ~/.ssh
+      #     echo "${{ secrets.UPDATE_SERVER_SSH_KEY }}" > ~/.ssh/id_ed25519
+      #     chmod 600 ~/.ssh/id_ed25519
+      #     scp -o StrictHostKeyChecking=no altly.zip deploy@updates.altly.io:/var/www/update-server/packages/altly.zip

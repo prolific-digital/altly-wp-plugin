@@ -2,6 +2,7 @@ node_modules
 .DS_Store
 .env.*
 *.zip
+/altly
 build/*
 e2e/.artifacts/
 e2e/fixtures/

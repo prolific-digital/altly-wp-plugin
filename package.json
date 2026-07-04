@@ -1,13 +1,13 @@
 {
   "name": "altly-ai-text-generator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "WordPress plugin for Altly - AI Text Generator",
   "main": "index.js",
   "scripts": {
     "dev": "webpack serve --mode development",
     "build": "webpack --mode production",
     "typecheck": "tsc --noEmit",
-    "zip": "yarn build && zip -r altly.zip altly.php build languages readme.txt -x \"**/node_modules/**\" \"**/src/**\" \"**/*.map\" \"**/.DS_Store\" \"**/.env*\" \"**/.git*\"",
+    "zip": "yarn build && rm -rf altly altly.zip && mkdir altly && rsync -a --exclude='node_modules' --exclude='src' --exclude='*.map' --exclude='.DS_Store' --exclude='.env*' --exclude='.git*' --exclude='build/altly.php' --exclude='build/tests' altly.php build languages readme.txt vendor altly/ && zip -r altly.zip altly && rm -rf altly",
     "wp-env": "wp-env",
     "e2e": "node scripts/e2e.mjs",
     "e2e:test": "playwright test"
