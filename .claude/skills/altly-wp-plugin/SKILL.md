@@ -36,7 +36,7 @@ Pushes images missing alt text to the Altly API, receives alt text back.
 
 ## Also
 
-- Keep `altly.php` header version = `package.json` version (now `1.0.0`).
+- Keep `altly.php` header version = `package.json` version (now `1.1.0`).
 - REST endpoints gate on `manage_options` + `wp_rest` nonce (except GET `images`); there
   is no API-facing inbound endpoint.
 - Only `image/jpeg`/`image/png` count as "missing alt" (empty string = missing).

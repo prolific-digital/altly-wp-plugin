@@ -62,9 +62,9 @@ never make it required.
 ## Other things worth knowing
 
 - Keep `altly.php` header version and `package.json` version in sync on every release
-  (currently aligned at `1.0.0`).
+  (currently aligned at `1.1.0`).
 - All REST endpoints (`images`, `validate-key`, `save-key`, `save-mode`,
-  `bulk-generate`, `mark-queued`, `clear-alt-text`, `clear-queue`, `sync-results`) gate on
+  `mark-queued`, `clear-alt-text`, `clear-queue`, `sync-results`) gate on
   `manage_options` and verify the `wp_rest` nonce (except GET `images`). There's no
   API-facing inbound endpoint — every route here is admin-only.
 - Only `image/jpeg` and `image/png` attachments count as "missing alt" (empty-string alt

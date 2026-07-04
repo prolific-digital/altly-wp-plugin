@@ -1,7 +1,7 @@
 # Altly plugin — end-to-end harness
 
 Local WordPress (via `@wordpress/env`) + Playwright suite that drives the real
-plugin admin UI end to end and proves the queue → worker → webhook flow, at
+plugin admin UI end to end and proves the queue → worker → pull flow, at
 **zero provider spend**.
 
 ## What it proves

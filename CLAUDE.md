@@ -99,32 +99,33 @@ yarn build      # webpack --mode production → writes build/, reads .env
 - `yarn dev` runs webpack-dev-server (writeToDisk: true) and reads **`.env.local`** instead of
   `.env`. Create `.env.local` pointing at your local API (e.g. `http://localhost:3000/v2/...`)
   for local development; it is git-ignored and not present by default.
-- `yarn zip` packages a release. Heads-up: the current `zip` script references
-  `altly-ai-text-generator.php` and a `languages` dir that don't exist in this repo (the main
-  file is `altly.php`) — the produced zip is likely missing the main plugin file. Verify/fix the
-  zip contents before shipping.
+- `yarn zip` packages a release. It now references the real main file (`altly.php`), stages a
+  single top-level `altly/` dir, and includes the `languages/` dir (which exists) — so the
+  produced zip contains the plugin bootstrap. Still sanity-check the zip contents before shipping.
 
 Stack: React 18 + Tailwind, bundled by webpack 5 via Babel; `dotenv-webpack` injects the
 `REACT_APP_*` vars. Release automation: `.github/workflows/release.yml` runs `yarn zip` on
 `v*.*.*` tags and uploads `altly.zip` to a GitHub Release.
 
-## E2E / local WP harness — planned, NOT present
+## E2E / local WP harness — present
 
-There is currently **no** Playwright suite, no `yarn e2e` script, and no `.wp-env.json` in this
-repo. A `@wordpress/env` local WordPress + a committed `@playwright/test` suite (drive the admin
-bulk-generate for both Instant and Relaxed, assert alt text is written and credits deducted) are
-planned but not yet built. If you're asked to "run the E2E tests," they don't exist yet — scaffold
-them rather than assuming.
+The harness is built: `.wp-env.json`, `scripts/e2e.mjs` (the `yarn e2e` orchestrator), and a
+committed `@playwright/test` suite under `e2e/` (`instant.spec.js`, `relaxed.spec.js`,
+`poison.spec.js`) all exist. It brings up a `@wordpress/env` local WordPress, drives the admin
+Bulk Generate for both Instant and Relaxed, and asserts alt text is pulled in and credits are
+deducted — at zero provider spend (mock Anthropic). `yarn e2e` requires the sibling backend
+(local Supabase + altly-api + mock Anthropic) already running; see `e2e/README.md` for the
+prerequisites and run steps.
 
 ## Other things worth knowing
 
 - **Version:** the `altly.php` header (the one WordPress reads) and `package.json`
-  are now aligned at `1.0.0` (the header was bumped from `0.1.0` to match). Keep
-  them in sync on every release; confirm the intended number before shipping.
+  are now aligned at `1.1.0` (the Phase B baseline with PUC + pull-model delivery).
+  Keep them in sync on every release; confirm the intended number before shipping.
 - **`yarn zip`** bundles `altly.php` (the real main file). It previously referenced
   a non-existent `altly-ai-text-generator.php`, so the zip shipped without the
   plugin bootstrap — fixed.
-- All REST endpoints (`images`, `validate-key`, `save-key`, `save-mode`, `bulk-generate`,
+- All REST endpoints (`images`, `validate-key`, `save-key`, `save-mode`,
   `mark-queued`, `clear-alt-text`, `clear-queue`, `sync-results`) gate on `manage_options`
   and, except the GET `images`, verify the `wp_rest` nonce via `altly_verify_rest_nonce()`.
   There is no API-facing inbound endpoint — delivery is pull-only (see above), so every
