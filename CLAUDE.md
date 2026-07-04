@@ -5,32 +5,28 @@ images (missing alt text) to the Altly API and receives generated alt text back.
 UI is a React app; the plugin also exposes a small set of WordPress REST endpoints. Read
 this before editing — the parts that are easy to get wrong are front-loaded.
 
-## The one invariant: the `receive-alt` webhook contract
+## Delivery is pull-only: `altly_write_alt_text` + `altly_sync_results`
 
-The Altly API calls back into WordPress at `POST /wp-json/altly/v1/receive-alt` to deliver
-finished alt text. **This contract is invariant — the API depends on it exactly. Do not
-rename fields, change types, or alter the auth check without coordinating a matching change
-on the API side.** (Defined in `altly.php`, route registered ~line 320.)
+There is no inbound webhook. The plugin polls the Altly API for finished alt text and
+writes it locally. The pull job `altly_sync_results()` (in `altly.php`) fetches
+undelivered rows from `ALTLY_API_RESULTS_URL` (`/v2/results`), writes each one through
+the shared `altly_write_alt_text($attachment_id, $alt_text)`, then acks the drained ids
+against `ALTLY_API_RESULTS_ACK_URL` (`/v2/results/ack`) so a re-pull doesn't refetch them.
+It runs on an admin-triggered "Sync results" REST endpoint (`altly/v1/sync-results`) and
+on an hourly wp-cron backstop (`ALTLY_SYNC_CRON_HOOK`) for low-traffic sites.
 
-Request body (JSON):
-
-- `image_id` — Number. Cast with `intval()`; must be an existing `attachment` post.
-- `alt_text` — string. Run through `sanitize_text_field()`.
-- `api_key` — string. Compared with **constant-time `hash_equals()`** against the stored
-  `altly_license_key` option. This is the entire auth — there is no nonce, no signature.
-  Two hardening gates run first: if the stored key is empty/unset the request is rejected
-  **403** (`not_configured`) before any compare — so a fresh/unconfigured site can't be
-  written to; and the target attachment must carry the persistent `_altly_managed` meta
-  (set at enqueue by `mark-queued`, never deleted) or the request is rejected **403**
-  (`not_managed`) — so a caller past the key gate can't rewrite alt on arbitrary media.
-
-On success the handler writes `update_post_meta($image_id, '_wp_attachment_image_alt', $alt_text)`
-(falling back to `add_post_meta`), then `delete_post_meta($image_id, '_altly_queued')` to clear
-the **transient** in-flight flag. `_wp_attachment_image_alt` is WordPress's standard alt-text
-meta key — that's why generated alt shows up in the Media Library. Note the two markers differ:
-`_altly_queued` is transient (cleared on delivery; drives the admin UI's "queued" badge) while
-`_altly_managed` is permanent (the H-8 scope gate) — an idempotent webhook redelivery of an
-already-processed image therefore still returns 2xx.
+`altly_write_alt_text()` is the single write path and enforces the persistent
+`_altly_managed` scope gate (H-8): the target attachment must carry `_altly_managed` meta
+(set once at enqueue time by `altly/v1/mark-queued`, never deleted) or the write is
+rejected 403 (`not_managed`) — this stops the pull job from rewriting alt on arbitrary
+media if a row's id were ever wrong. On success it writes
+`update_post_meta($attachment_id, '_wp_attachment_image_alt', $alt_text)` (falling back to
+`add_post_meta`), then `delete_post_meta($attachment_id, '_altly_queued')` to clear the
+**transient** in-flight flag. `_wp_attachment_image_alt` is WordPress's standard alt-text
+meta key — that's why generated alt shows up in the Media Library. Note the two markers
+differ: `_altly_queued` is transient (cleared once the pull job lands the alt text; drives
+the admin UI's "queued" badge) while `_altly_managed` is permanent (the H-8 scope gate) —
+a redelivery of an already-processed row therefore still succeeds idempotently.
 
 ## The real request path: JS is functional, PHP is legacy/dead
 
@@ -42,22 +38,24 @@ i.e. `https://api.altly.io/v2/queue`) with `Authorization: Bearer <apiKey>` plus
 fields:
 
 - `file` — the image blob
-- `platform_id` — `window.location.host`
-- `platform_url` — `window.location.origin`
+- `platform_id` — `AltlySettings.siteHost` (server-derived; must be byte-identical to
+  `altly_site_host()`, NOT `window.location.host`, since the API scopes queued rows by
+  `(user, platform_id)` and the pull/ack path uses the server-derived value)
 - `api_key` — the license key
 - `image_id` — the WP attachment ID
 - `mode` — `"instant"` or `"relaxed"` (see below)
 
-`image_id` is the load-bearing field: it's what the API echoes back to `receive-alt` so the
-result maps to the right attachment. After a successful queue POST, the JS calls
-`altly/v1/mark-queued` to set the `_altly_queued` meta.
+There is deliberately no `platform_url` field: its absence tells the API to skip any push
+delivery and leave the row for this plugin to pull. `image_id` is the load-bearing field:
+it's what the pull job (`altly_sync_results`) matches against when the API's `/v2/results`
+row comes back, so the alt text lands on the right attachment. After a successful queue
+POST, the JS calls `altly/v1/mark-queued` to set the `_altly_queued` meta.
 
-**Legacy/dead (PHP):** `altly_bulk_generate()` in `altly.php` (the `altly/v1/bulk-generate`
-route) builds its own multipart POST server-side, but it only sends `file`, `platform_id`
-(`get_bloginfo('name')`), and `platform_url` (`home_url()`) — **no `image_id`, no `api_key`
-field, no `mode`.** Without `image_id` the API cannot route results back through `receive-alt`,
-so this path is effectively broken and unused. The React UI never calls `bulk-generate`. Treat
-it as dead code; don't extend it — put new enqueue logic in `Shell.js`.
+**Legacy/dead (PHP):** a server-side `altly_bulk_generate()` (`altly/v1/bulk-generate`
+route) previously existed and built its own multipart POST, but it sent no `image_id`, no
+`api_key`, no `mode`, so it could never route results back — it has since been removed
+from `altly.php` entirely. If you ever see it referenced, treat it as gone; put all
+enqueue logic in `Shell.js`.
 
 ## `mode`: Instant vs Relaxed (two credit tiers)
 
@@ -126,10 +124,11 @@ them rather than assuming.
 - **`yarn zip`** bundles `altly.php` (the real main file). It previously referenced
   a non-existent `altly-ai-text-generator.php`, so the zip shipped without the
   plugin bootstrap — fixed.
-- The admin REST endpoints (`images`, `validate-key`, `save-key`, `save-mode`, `bulk-generate`,
-  `mark-queued`, `clear-alt-text`, `clear-queue`) all gate on `manage_options` and, except the
-  GET `images`, verify the `wp_rest` nonce via `altly_verify_rest_nonce()`. `receive-alt` is the
-  exception — it's API-facing and authed by the `api_key` equality check described above.
+- All REST endpoints (`images`, `validate-key`, `save-key`, `save-mode`, `bulk-generate`,
+  `mark-queued`, `clear-alt-text`, `clear-queue`, `sync-results`) gate on `manage_options`
+  and, except the GET `images`, verify the `wp_rest` nonce via `altly_verify_rest_nonce()`.
+  There is no API-facing inbound endpoint — delivery is pull-only (see above), so every
+  route on this plugin is admin-only.
 - Only `image/jpeg` and `image/png` attachments are queried as "missing alt"; the images list
   treats empty-string alt as missing too.
 - Active development happens on feature branches (current: `feat/vision-claude-migration`).
@@ -139,8 +138,8 @@ them rather than assuming.
 **Non-trivial work in this repo MUST be dispatched to the `altly-wp-plugin-expert`
 subagent** (via the Task tool) rather than edited directly, so the load-bearing rules
 above (only the JS `Shell.js handleBulkGenerate` path is live — the PHP `bulk-generate`
-is dead; the invariant `receive-alt` contract; rebuild with `yarn build` after `src/`
-edits; keep `altly.php` constants and `.env` `REACT_APP_*` on `api.altly.io`; `mode`
-defaults to Instant for backward-compat) are always applied. Only trivial one-line or doc
-edits may bypass it. The subagent and a matching `altly-wp-plugin` skill live in
-`.claude/`.
+is dead; delivery is pull-only via `altly_write_alt_text` + `altly_sync_results`; rebuild
+with `yarn build` after `src/` edits; keep `altly.php` constants and `.env` `REACT_APP_*`
+on `api.altly.io`; `mode` defaults to Instant for backward-compat) are always applied.
+Only trivial one-line or doc edits may bypass it. The subagent and a matching
+`altly-wp-plugin` skill live in `.claude/`.

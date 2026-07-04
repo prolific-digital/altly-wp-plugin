@@ -1,7 +1,7 @@
 const { test, expect } = require("@playwright/test");
 const db = require("./helpers/db");
 const { runCron, resetMock, mockStats } = require("./helpers/wp");
-const { ACCOUNT_ID, LICENSE_KEY, INSTANT_QUEUE, WP_BASE } = require("./helpers/config");
+const { ACCOUNT_ID, LICENSE_KEY, INSTANT_QUEUE } = require("./helpers/config");
 
 test("poison messages: both archived, zero AI calls, no credits spent", async () => {
   // Known-clean starting point for the instant queue + mock counters.
@@ -11,8 +11,8 @@ test("poison messages: both archived, zero AI calls, no credits spent", async ()
   const archivedBefore = await db.archivedCount(INSTANT_QUEUE);
   const creditsBefore = await db.creditsFor(ACCOUNT_ID);
 
-  // (a) Fully-formed but undeliverable platform_url (the real incident:
-  //     a *.local host). Archived by the deliverability guard, no spend.
+  // (a) Malformed platform_id (the real incident: a *.local host slipping in
+  //     via a raw hostname). Archived by the deliverability guard, no spend.
   await db.sendMessage(INSTANT_QUEUE, {
     image_url:
       "http://127.0.0.1:54521/storage/v1/object/public/images/" +
@@ -20,13 +20,12 @@ test("poison messages: both archived, zero AI calls, no credits spent", async ()
       "/poison-undeliverable.jpg",
     user_id: ACCOUNT_ID,
     platform_id: "heparks-pro.local",
-    platform_url: "http://heparks-pro.local",
     api_key: LICENSE_KEY,
     image_id: 999001,
     mode: "instant",
   });
 
-  // (b) Deliverable platform_url but read_ct pushed above the cap. Archived by
+  // (b) Well-formed platform_id but read_ct pushed above the cap. Archived by
   //     the read_ct guard at step 1, before the model is ever touched.
   const msgId = await db.sendMessage(INSTANT_QUEUE, {
     image_url:
@@ -35,7 +34,6 @@ test("poison messages: both archived, zero AI calls, no credits spent", async ()
       "/poison-readct.jpg",
     user_id: ACCOUNT_ID,
     platform_id: "localhost",
-    platform_url: WP_BASE,
     api_key: LICENSE_KEY,
     image_id: 999002,
     mode: "instant",

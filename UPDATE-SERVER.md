@@ -19,10 +19,10 @@ filter. `wp-update-server` is the server half: an endpoint that reads a plugin z
 disk and serves WordPress the metadata (version, changelog, download URL) it expects.
 
 This server is also the delivery mechanism for the baseline pull+PUC plugin itself — every
-customer site needs to get `1.1.0` (the first version with PUC and the pull-model
-`receive-alt` webhook) before anything can auto-update. That baseline rollout is what makes
-it safe to later retire the legacy push path on the API side — see the cadence and
-cross-repo gate in Section 6.
+customer site needs to get `1.1.0` (the first version with PUC and pull-model delivery)
+before anything can auto-update. That baseline rollout is what makes it safe to later
+retire the legacy push path on the API side — see the cadence and cross-repo gate in
+Section 6.
 
 ## 2. Provision `updates.altly.io`
 

@@ -36,9 +36,8 @@ define('ALTLY_API_QUEUE_URL', ALTLY_API_BASE_URL . '/queue');
 if (! defined('ALTLY_UPDATE_SERVER_URL')) {
   define('ALTLY_UPDATE_SERVER_URL', 'https://updates.altly.io/');
 }
-// Pull-model endpoints: this plugin polls for finished alt text and acks it,
-// rather than relying on the API pushing back to receive-alt. See
-// altly_sync_results() below.
+// Pull-model endpoints: this plugin polls for finished alt text and acks it.
+// There is no inbound push endpoint. See altly_sync_results() below.
 define('ALTLY_API_RESULTS_URL', ALTLY_API_BASE_URL . '/results');
 define('ALTLY_API_RESULTS_ACK_URL', ALTLY_API_BASE_URL . '/results/ack');
 
@@ -409,48 +408,20 @@ function altly_mark_queued($request) {
     return new WP_Error('missing_image_id', 'Missing image ID', array('status' => 400));
   }
   $image_id = intval($params['image_id']);
-  // Transient in-flight flag: set here, cleared by receive-alt once alt lands.
+  // Transient in-flight flag: set here, cleared by altly_write_alt_text once
+  // the pull job (altly_sync_results) delivers the alt text.
   update_post_meta($image_id, '_altly_queued', true);
-  // Persistent "Altly manages this attachment" marker: never deleted, so an
-  // idempotent webhook redelivery of an already-processed image still passes the
-  // receive-alt scope gate (see altly_receive_alt_text).
+  // Persistent "Altly manages this attachment" marker: never deleted, so a
+  // redelivery of an already-processed image via the pull job still passes the
+  // scope gate in altly_write_alt_text.
   update_post_meta($image_id, '_altly_managed', true);
   return rest_ensure_response(array('success' => true, 'message' => 'Image marked as queued.'));
 }
 
-add_action('rest_api_init', function () {
-  register_rest_route('altly/v1', '/receive-alt', array(
-    'methods'             => 'POST',
-    'callback'            => 'altly_receive_alt_text',
-    'permission_callback' => 'altly_validate_api_key_for_receive_alt',
-  ));
-});
-
-function altly_validate_api_key_for_receive_alt(WP_REST_Request $request) {
-  $params = $request->get_json_params();
-  if (empty($params)) {
-    $raw    = wp_unslash(file_get_contents('php://input'));
-    $params = json_decode($raw, true);
-  }
-  if (! isset($params['api_key'])) {
-    return new WP_Error('missing_api_key', 'Missing API key', array('status' => 401));
-  }
-  $stored_key = get_option('altly_license_key');
-  // Reject before any comparison when the site has no license key configured.
-  // Otherwise an empty stored key would let an empty (or absent-but-set) key
-  // through, accepting unauthenticated writes on a fresh/unconfigured site.
-  if (empty($stored_key)) {
-    return new WP_Error('not_configured', 'Site is not configured to accept alt text', array('status' => 403));
-  }
-  $provided_key = sanitize_text_field($params['api_key']);
-  // Constant-time comparison to avoid leaking the key via timing.
-  return hash_equals((string) $stored_key, (string) $provided_key);
-}
-
 /**
- * The single, shared alt-text write path used by BOTH the push webhook
- * (receive-alt) and the pull job (altly_sync_results). Enforces the persistent
- * `_altly_managed` scope gate, writes WordPress's standard
+ * The single, shared alt-text write path, called by the pull job
+ * (altly_sync_results) once results are drained from the queue. Enforces the
+ * persistent `_altly_managed` scope gate, writes WordPress's standard
  * `_wp_attachment_image_alt` meta, and clears the transient `_altly_queued`
  * in-flight flag.
  *
@@ -475,10 +446,10 @@ function altly_write_alt_text($attachment_id, $alt_text) {
   }
 
   // Scope writes to attachments Altly manages. `_altly_managed` is set once at
-  // enqueue time (altly/v1/mark-queued) and never deleted, so a caller past the
-  // key gate cannot rewrite alt text on arbitrary media, while an idempotent
-  // redelivery of an already-processed image still passes (the transient
-  // `_altly_queued` flag may already be cleared — do not gate on it here).
+  // enqueue time (altly/v1/mark-queued) and never deleted, so this cannot
+  // rewrite alt text on arbitrary media, while an idempotent redelivery of an
+  // already-processed image still passes (the transient `_altly_queued` flag
+  // may already be cleared — do not gate on it here).
   if (! get_post_meta($attachment_id, '_altly_managed', true)) {
     return new WP_Error('not_managed', 'Image is not managed by Altly', array('status' => 403));
   }
@@ -497,24 +468,6 @@ function altly_write_alt_text($attachment_id, $alt_text) {
   // Remove the transient queue meta now that the alt text is updated.
   delete_post_meta($attachment_id, '_altly_queued');
   return true;
-}
-
-function altly_receive_alt_text(WP_REST_Request $request) {
-  $params = $request->get_json_params();
-  if (empty($params)) {
-    $raw    = wp_unslash(file_get_contents('php://input'));
-    $params = json_decode($raw, true);
-  }
-  if (! isset($params['image_id']) || ! isset($params['alt_text']) || ! isset($params['api_key'])) {
-    return new WP_Error('missing_params', 'Missing parameters', array('status' => 400));
-  }
-
-  // Delegate to the shared write path (same logic the pull job uses).
-  $result = altly_write_alt_text($params['image_id'], $params['alt_text']);
-  if (is_wp_error($result)) {
-    return $result;
-  }
-  return rest_ensure_response(array('success' => true, 'message' => 'Alt text updated.'));
 }
 
 /**

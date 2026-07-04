@@ -15,11 +15,11 @@ plugin admin UI end to end and proves the queue → worker → webhook flow, at
   (`/v2/batch/submit` + `/v2/batch/poll`), spending exactly **1** credit; the
   WordPress alt text likewise lands via the pull-sync cron.
 
-Note: the plugin no longer relies on the API's push webhook. The enqueue omits
-`platform_url`, so the API leaves finished rows for the plugin to pull from
-`/v2/results` and ack via `/v2/results/ack`.
-- **`poison.spec.js`** — two bad instant messages (an undeliverable `*.local`
-  `platform_url`, and one past the `read_ct` cap) are both **archived** with
+Note: there is no push webhook — the plugin only pulls. The enqueue never sends a
+`platform_url` field at all, so the API always leaves finished rows for the plugin to
+pull from `/v2/results` and ack via `/v2/results/ack`.
+- **`poison.spec.js`** — two bad instant messages (a malformed `*.local`
+  `platform_id`, and one past the `read_ct` cap) are both **archived** with
   **zero** model calls and **zero** credits spent.
 
 ## Prerequisites — the backend must already be running
