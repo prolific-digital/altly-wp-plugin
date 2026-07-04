@@ -334,9 +334,16 @@ function altly_validate_api_key_for_receive_alt(WP_REST_Request $request) {
   if (! isset($params['api_key'])) {
     return new WP_Error('missing_api_key', 'Missing API key', array('status' => 401));
   }
+  $stored_key = get_option('altly_license_key');
+  // Reject before any comparison when the site has no license key configured.
+  // Otherwise an empty stored key would let an empty (or absent-but-set) key
+  // through, accepting unauthenticated writes on a fresh/unconfigured site.
+  if (empty($stored_key)) {
+    return new WP_Error('not_configured', 'Site is not configured to accept alt text', array('status' => 403));
+  }
   $provided_key = sanitize_text_field($params['api_key']);
-  $stored_key   = get_option('altly_license_key');
-  return ($provided_key === $stored_key);
+  // Constant-time comparison to avoid leaking the key via timing.
+  return hash_equals((string) $stored_key, (string) $provided_key);
 }
 
 function altly_receive_alt_text(WP_REST_Request $request) {
@@ -355,6 +362,13 @@ function altly_receive_alt_text(WP_REST_Request $request) {
   $image_post = get_post($image_id);
   if (! $image_post || $image_post->post_type !== 'attachment') {
     return new WP_Error('invalid_image', 'Invalid image ID', array('status' => 400));
+  }
+
+  // Scope writes to attachments Altly actually queued. `_altly_queued` is set at
+  // enqueue time (altly/v1/mark-queued) and cleared below once alt text lands, so
+  // a caller past the key gate cannot rewrite alt text on arbitrary media.
+  if (! get_post_meta($image_id, '_altly_queued', true)) {
+    return new WP_Error('not_queued', 'Image was not queued by Altly', array('status' => 409));
   }
 
   $current_alt = get_post_meta($image_id, '_wp_attachment_image_alt', true);
