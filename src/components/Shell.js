@@ -148,9 +148,11 @@ export default function Shell() {
           // path sends (AltlySettings.siteHost, derived server-side from
           // home_url()). Do NOT use window.location.host — it carries the port
           // and would diverge from the server value, and the API scopes queued
-          // rows by (user, platform_id). We intentionally send NO platform_url:
-          // its absence tells the API to skip the push webhook and leave the
-          // row for this plugin to pull via "Sync results" / the cron backstop.
+          // rows by (user, platform_id). We intentionally send NO platform_url
+          // because there is no push path anymore — the API never POSTs to
+          // customer sites. Finished results are pulled via GET /v2/results and
+          // acked via POST /v2/results/ack (this plugin's "Sync results" button
+          // and the hourly cron backstop).
           formData.append("platform_id", AltlySettings.siteHost);
           formData.append("api_key", AltlySettings.apiKey);
           formData.append("image_id", image.id);

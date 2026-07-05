@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Altly - AI Text Generator
  * Description: Generates detailed alt text for images using AI.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: Prolific Digital
  * Author URI: https://altly.ai
  * Text Domain: altly

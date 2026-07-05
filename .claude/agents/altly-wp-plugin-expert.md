@@ -21,8 +21,9 @@ are front-loaded below.**
 (`AltlySettings.siteHost`, server-derived — NOT `window.location.host`, which would
 diverge from the server-side pull/ack value), `api_key`, `image_id` (the WP attachment id
 — the load-bearing field the pull job matches results against), and `mode`. There is
-deliberately no `platform_url` field — its absence tells the API to leave the row for this
-plugin to pull rather than push it anywhere. After a successful POST it calls
+deliberately no `platform_url` field — there is no push path anymore; the API never POSTs
+to customer sites, so finished results are pulled via `GET /v2/results` and acked via
+`POST /v2/results/ack` ("Sync results" / the hourly cron backstop). After a successful POST it calls
 `altly/v1/mark-queued`. A prior server-side `altly_bulk_generate()`
 (`altly/v1/bulk-generate` route) sent no `image_id`/`api_key`/`mode` and has since been
 removed entirely from `altly.php` — put all enqueue logic in `Shell.js`.

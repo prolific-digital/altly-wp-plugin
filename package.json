@@ -1,6 +1,6 @@
 {
   "name": "altly-ai-text-generator",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "WordPress plugin for Altly - AI Text Generator",
   "main": "index.js",
   "scripts": {

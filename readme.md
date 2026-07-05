@@ -89,13 +89,13 @@ REACT_APP_API_QUEUE_URL=https://api.altly.io/v2/queue
 
 ## Important Note on Local API Development
 
-If you're running the Altly API locally, you will be able to queue and process images and see those changes reflected immediately in your local WordPress environment. To process images locally, use a tool like Bruno or HTTPie to send a GET request to:
+If you're running the Altly API locally, you can queue and process images and see those changes reflected in your local WordPress environment. To process images locally, use a tool like Bruno or HTTPie to send a GET request to:
 
 ```
 http://localhost:3000/v2/queue/process/
 ```
 
-Include an `Authorization` header with your API key. If you're not running the API locally, external Altly services will not push changes to your local environment; this setup is provided purely for development convenience.
+Include an `Authorization` header with your API key. Delivery is pull-only: the plugin pulls finished alt text from the API (via "Sync results" or the hourly cron) and writes it locally — the API never pushes changes to your site. If you're not running the API locally, your local site has nothing to pull from; this setup is provided purely for development convenience.
 
 ## Changelog
 

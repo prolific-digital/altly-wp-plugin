@@ -5,7 +5,7 @@ Tags: accessibility, alt text, AI, images, seo
 Requires at least: 5.6
 Tested up to: 6.7
 Requires PHP: 7.2
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Altly is a cutting-edge plugin that seamlessly integrates Altly’s AI-powered alt text generation into your WordPress website, transforming your media library into an accessibility and SEO asset.
@@ -37,6 +37,10 @@ Yes, you can clear all alt text via the settings page. It is recommended to back
 2. **Settings Page:** Allows you to configure your API key and manage alt text generation.
 
 == Changelog ==
+= 1.1.1 =
+* Fixed: saving a new API key now takes effect immediately — Bulk Generate and the credits check use the fresh key without needing a page reload.
+* Fixed: the low-credit notice no longer shows the "credits are exhausted" message when credits remain; it now reports the actual remaining balance.
+
 = 1.0.0 =
 * Initial release.
 * Generates alt text for images using an external AI API.

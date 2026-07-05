@@ -1,9 +1,10 @@
 # CLAUDE.md — Altly WordPress plugin
 
-Altly is an AI alt-text product. This repo is the WordPress plugin that pushes a site's
-images (missing alt text) to the Altly API and receives generated alt text back. The admin
-UI is a React app; the plugin also exposes a small set of WordPress REST endpoints. Read
-this before editing — the parts that are easy to get wrong are front-loaded.
+Altly is an AI alt-text product. This repo is the WordPress plugin that uploads a site's
+images (missing alt text) to the Altly API, then **pulls** the generated alt text back from
+the API and writes it locally (the API never POSTs to customer sites). The admin UI is a
+React app; the plugin also exposes a small set of WordPress REST endpoints. Read this
+before editing — the parts that are easy to get wrong are front-loaded.
 
 ## Delivery is pull-only: `altly_write_alt_text` + `altly_sync_results`
 
@@ -45,8 +46,11 @@ fields:
 - `image_id` — the WP attachment ID
 - `mode` — `"instant"` or `"relaxed"` (see below)
 
-There is deliberately no `platform_url` field: its absence tells the API to skip any push
-delivery and leave the row for this plugin to pull. `image_id` is the load-bearing field:
+There is deliberately no `platform_url` field — there is no push delivery to skip. The API
+never POSTs to customer sites; the push path and its `platform_url` plumbing were removed
+API-side (Stage 4, 2026-07-05). This plugin only PULLS finished alt text from the API (see
+"Delivery is pull-only" above), so the queued row is simply left for the pull job to claim.
+`image_id` is the load-bearing field:
 it's what the pull job (`altly_sync_results`) matches against when the API's `/v2/results`
 row comes back, so the alt text lands on the right attachment. After a successful queue
 POST, the JS calls `altly/v1/mark-queued` to set the `_altly_queued` meta.

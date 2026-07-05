@@ -64,6 +64,11 @@ export default function Settings({ onUpdateCredits }) {
 
       const saveData = await resSave.json();
       if (saveData.success) {
+        // Keep the in-memory global in sync so a Bulk Generate / credits fetch
+        // right after saving uses the fresh token (Shell.js reads
+        // AltlySettings.apiKey). Without this the next queue POST would 401 on
+        // the stale key localized at page load until a reload.
+        AltlySettings.apiKey = apiKey;
         setSuccess("API key saved successfully.");
       } else {
         setError(
