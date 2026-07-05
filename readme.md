@@ -24,7 +24,7 @@ Upload the generated **altly.zip** folder through the WordPress backend.
 
     ```
     git clone <repository-url>
-    cd altly-ai-text-generator
+    cd altly-wp-plugin
     ```
 
 2.  **Install Dependencies:**
@@ -99,10 +99,5 @@ Include an `Authorization` header with your API key. Delivery is pull-only: the 
 
 ## Changelog
 
-### 0.0.1
-
-- Initial release of Altly for WordPress.
-- Automatic alt text generation using AI.
-- Bulk processing and queue management.
-- Integration with the WordPress Media Library.
-- Support for local API development and environment configuration.
+The user-facing changelog lives in `readme.txt` (the WordPress.org-format readme) — see
+its `== Changelog ==` section for the canonical, version-by-version history.

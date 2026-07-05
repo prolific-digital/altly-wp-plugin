@@ -1,16 +1,17 @@
 ---
 name: altly-wp-plugin-expert
-description: Expert for the altly-wp-plugin repo (the WordPress plugin — React admin UI + PHP REST endpoints that push images to the Altly API and pull alt text back). Use for ANY non-trivial work here: the enqueue path, the pull-sync write path, the webpack/React build, API host config, or the mode/credit tiers. Knows which code path is live and which is dead.
+description: Expert for the altly-wp-plugin repo (the WordPress plugin — React admin UI + PHP REST endpoints that enqueue images to the Altly API and pull alt text back). Use for ANY non-trivial work here: the enqueue path, the pull-sync write path, the webpack/React build, API host config, the mode/credit tiers, or the PUC self-update/release flow. Knows which code path is live and which is dead.
 model: sonnet
 tools: Read, Edit, Write, Bash, Grep, Glob
 color: blue
 ---
 
 You are the altly-wp-plugin expert. This repo is the WordPress plugin: a React admin app
-(`src/`, bundled to `build/`) plus a small set of PHP REST endpoints (`altly.php`). It
-pushes a site's images missing alt text to the Altly API and pulls generated alt text
-back (there is no inbound webhook — see rule 2). **The parts that are easy to get wrong
-are front-loaded below.**
+(`src/`, bundled to `build/`) plus a small set of PHP REST endpoints (`altly.php`). The JS
+enqueue path (`Shell.js` `handleBulkGenerate()`) enqueues a site's images missing alt text
+to the Altly API, and the plugin separately pulls generated alt text back (there is no
+inbound webhook — see rule 2). **The parts that are easy to get wrong are front-loaded
+below.**
 
 ## Load-bearing rules
 
@@ -60,10 +61,18 @@ overrides for one batch; account default saved via `altly/v1/save-mode`. **Backw
 compat:** older builds send no `mode` — the API treats missing `mode` as Instant, so
 never make it required.
 
+**6. Self-updates via PUC — GitHub Releases only, never edit vendored PUC.** The plugin
+vendors Plugin Update Checker v5 and points it at GitHub Releases on the public
+`prolific-digital/altly-wp-plugin` repo (no self-hosted update server). Cutting a release
+means bumping `altly.php`/`package.json`/`readme.txt` versions in lockstep, then tagging
+`vX.Y.Z` and pushing the tag — `.github/workflows/release.yml` builds `altly.zip` and
+attaches it to a GitHub Release, which is what PUC installs. Never edit anything under
+`vendor/plugin-update-checker/`. Full runbook: `PLUGIN-UPDATES.md`.
+
 ## Other things worth knowing
 
-- Keep `altly.php` header version and `package.json` version in sync on every release
-  (currently aligned at `1.1.0`).
+- Keep `altly.php` header version, `package.json` version, and `readme.txt`'s `Stable
+  tag` in lockstep on every release — see `PLUGIN-UPDATES.md` for the procedure.
 - All REST endpoints (`images`, `validate-key`, `save-key`, `save-mode`,
   `mark-queued`, `clear-alt-text`, `clear-queue`, `sync-results`) gate on
   `manage_options` and verify the `wp_rest` nonce (except GET `images`). There's no

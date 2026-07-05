@@ -6,7 +6,7 @@ description: Conventions and gotchas for the altly-wp-plugin codebase (the WordP
 # altly-wp-plugin quick reference
 
 WordPress plugin: React admin app (`src/` → `build/`) + PHP REST endpoints (`altly.php`).
-Pushes images missing alt text to the Altly API, receives alt text back.
+Enqueues images missing alt text to the Altly API, pulls alt text back.
 
 ## Never break these
 
@@ -34,9 +34,17 @@ Pushes images missing alt text to the Altly API, receives alt text back.
   Backward compat: old builds send no `mode` → API treats missing as Instant; never
   make it required.
 
+- **Self-updates via PUC — GitHub Releases only.** The plugin vendors Plugin Update
+  Checker v5, pointed at GitHub Releases on the public `prolific-digital/altly-wp-plugin`
+  repo (no self-hosted server). Release cut = bump `altly.php`/`package.json`/`readme.txt`
+  versions in lockstep, tag `vX.Y.Z`, push the tag — `.github/workflows/release.yml`
+  builds and attaches `altly.zip`. Never edit `vendor/plugin-update-checker/`. Full
+  runbook: `PLUGIN-UPDATES.md`.
+
 ## Also
 
-- Keep `altly.php` header version = `package.json` version (now `1.1.0`).
+- Keep `altly.php` header version, `package.json` version, and `readme.txt`'s `Stable
+  tag` in lockstep — see `PLUGIN-UPDATES.md`.
 - REST endpoints gate on `manage_options` + `wp_rest` nonce (except GET `images`); there
   is no API-facing inbound endpoint.
 - Only `image/jpeg`/`image/png` count as "missing alt" (empty string = missing).

@@ -3,7 +3,7 @@ Contributors: prolificdigital
 Donate link: https://altly.ai/donate
 Tags: accessibility, alt text, AI, images, seo
 Requires at least: 5.6
-Tested up to: 6.7
+Tested up to: 7.0
 Requires PHP: 7.2
 Stable tag: 1.1.1
 License: GPL-2.0-or-later
@@ -41,6 +41,10 @@ Yes, you can clear all alt text via the settings page. It is recommended to back
 * Fixed: saving a new API key now takes effect immediately — Bulk Generate and the credits check use the fresh key without needing a page reload.
 * Fixed: the low-credit notice no longer shows the "credits are exhausted" message when credits remain; it now reports the actual remaining balance.
 
+= 1.1.0 =
+* Added: self-updates via GitHub Releases (vendored Plugin Update Checker) — future releases are offered as a normal WP Dashboard update.
+* Changed: delivery is now pull-only. The plugin polls the Altly API for finished alt text ("Sync results" action + an hourly cron backstop) and writes it locally; the API no longer pushes results to your site.
+
 = 1.0.0 =
 * Initial release.
 * Generates alt text for images using an external AI API.
@@ -48,5 +52,8 @@ Yes, you can clear all alt text via the settings page. It is recommended to back
 * Provides an intuitive admin interface for API key configuration.
 
 == Upgrade Notice ==
+= 1.1.0 =
+This release must be installed manually (upload the zip via Plugins > Add New > Upload Plugin) — it is the first version with the self-update checker, so earlier versions cannot detect or install it automatically. Every release after this one is offered automatically.
+
 = 1.0.0 =
 Initial release. Enjoy your new AI-powered alt text generator!

@@ -57,10 +57,14 @@ when a newer tagged release is available — same UX as a wordpress.org plugin.
    folder name would break the version comparison against the GitHub release tag.
 2. **Only after 100% of sites are confirmed on `1.1.0`** do later releases become fully
    passive, following the cadence in Section 2 above.
-3. **Cross-repo gate:** removing the legacy push-based delivery path on the API side must
-   **not** happen until that same 100%-migrated condition is met — that gate and its
-   tracking live in `altly-platform/DEPLOY.md`. Do not treat "GitHub Releases wired up" as
-   license to start that removal; the two are sequenced, not parallel.
+3. **Cross-repo gate:** removing the legacy push-based delivery path on the API side was
+   gated on that same 100%-migrated condition — see `altly-platform/DEPLOY.md` Stage 4.
+   As of 2026-07-05 the API-side push removal has shipped to production (the API no
+   longer POSTs to customer sites; delivery is pull-only). **This repo has no record of
+   how — or whether — the 100% migration precondition was actually confirmed before that
+   removal shipped**; see the flagged open item below. Any site still running a pre-1.1.0
+   (pre-PUC, push-only) plugin build has no way to pull results and has silently stopped
+   receiving alt text.
 
 ## 4. Verify a release
 
@@ -86,5 +90,11 @@ at this repo, check Dashboard → Updates (or Plugins) — the new version shoul
 
 ## Open items for Chris to confirm
 
-- Tracking mechanism for "100% of sites migrated" before the push-removal gate in
-  `altly-platform/DEPLOY.md` can be cleared (Section 3).
+- **OPS RISK — unresolved as of this doc pass:** neither this repo nor
+  `altly-platform/DEPLOY.md` shows evidence of a tracking mechanism that confirmed "100%
+  of sites migrated to the 1.1.0 pull+PUC baseline" before API-side push removal shipped
+  to prod (2026-07-05). Push removal has already shipped. If that gate was not actually
+  met, any site still running a pre-1.1.0 build receives neither push (removed) nor pull
+  (its plugin predates PUC and the sync-results code) and is silently no longer getting
+  alt text back. Confirm what tracking (if any) was done, and if none was, audit
+  installed-plugin versions across customer sites now.

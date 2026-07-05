@@ -123,9 +123,10 @@ prerequisites and run steps.
 
 ## Other things worth knowing
 
-- **Version:** the `altly.php` header (the one WordPress reads) and `package.json`
-  are now aligned at `1.1.0` (the Phase B baseline with PUC + pull-model delivery).
-  Keep them in sync on every release; confirm the intended number before shipping.
+- **Version:** keep `altly.php`'s `Version:` header, `package.json`'s `version`, and
+  `readme.txt`'s `Stable tag` in lockstep on every release — do not hardcode a number
+  here, since it drifts; the canonical bump-and-release procedure lives in
+  `PLUGIN-UPDATES.md`.
 - **`yarn zip`** bundles `altly.php` (the real main file). It previously referenced
   a non-existent `altly-ai-text-generator.php`, so the zip shipped without the
   plugin bootstrap — fixed.
