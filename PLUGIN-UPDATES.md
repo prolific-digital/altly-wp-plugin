@@ -60,11 +60,12 @@ when a newer tagged release is available — same UX as a wordpress.org plugin.
 3. **Cross-repo gate:** removing the legacy push-based delivery path on the API side was
    gated on that same 100%-migrated condition — see `altly-platform/DEPLOY.md` Stage 4.
    As of 2026-07-05 the API-side push removal has shipped to production (the API no
-   longer POSTs to customer sites; delivery is pull-only). **This repo has no record of
-   how — or whether — the 100% migration precondition was actually confirmed before that
-   removal shipped**; see the flagged open item below. Any site still running a pre-1.1.0
-   (pre-PUC, push-only) plugin build has no way to pull results and has silently stopped
-   receiving alt text.
+   longer POSTs to customer sites; delivery is pull-only). There were **no live customer
+   sites using Altly** when it shipped (confirmed 2026-07-05), so there was nothing to
+   migrate and no site lost delivery — the gate was moot at cutover. It remains the
+   binding rule going forward: once real sites exist, a pre-1.1.0 (pre-PUC, push-only)
+   build has no way to pull results, so never remove a delivery path server-side until
+   every site is confirmed on a pull-capable version.
 
 ## 4. Verify a release
 
@@ -88,13 +89,11 @@ at this repo, check Dashboard → Updates (or Plugins) — the new version shoul
   appear on wordpress.org and hijack the update flow. Don't remove this header.
 - Do not edit the vendored PUC files under `vendor/plugin-update-checker/`.
 
-## Open items for Chris to confirm
+## Notes
 
-- **OPS RISK — unresolved as of this doc pass:** neither this repo nor
-  `altly-platform/DEPLOY.md` shows evidence of a tracking mechanism that confirmed "100%
-  of sites migrated to the 1.1.0 pull+PUC baseline" before API-side push removal shipped
-  to prod (2026-07-05). Push removal has already shipped. If that gate was not actually
-  met, any site still running a pre-1.1.0 build receives neither push (removed) nor pull
-  (its plugin predates PUC and the sync-results code) and is silently no longer getting
-  alt text back. Confirm what tracking (if any) was done, and if none was, audit
-  installed-plugin versions across customer sites now.
+- **Migration gate — resolved (no live sites at cutover):** the 100%-migration gate that
+  fronts push removal (Section 3) was moot when push removal shipped to prod (2026-07-05)
+  because there were no live customer sites using Altly (confirmed 2026-07-05). No site
+  lost delivery. The gate stays the binding rule for any future push-removal-style change
+  once real sites exist — track installed plugin versions and confirm 100% on a
+  pull-capable build before removing a server-side delivery path.
