@@ -1,11 +1,10 @@
 === Altly - AI Text Generator ===
 Contributors: prolificdigital
-Donate link: https://altly.ai/donate
 Tags: accessibility, alt text, AI, images, seo
-Requires at least: 5.6
-Tested up to: 7.0
-Requires PHP: 7.2
-Stable tag: 1.1.1
+Requires at least: 6.5
+Tested up to: 7.1
+Requires PHP: 8.4
+Stable tag: 1.2.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Altly is a cutting-edge plugin that seamlessly integrates Altly’s AI-powered alt text generation into your WordPress website, transforming your media library into an accessibility and SEO asset.
@@ -17,8 +16,10 @@ Altly is a cutting-edge plugin that seamlessly integrates Altly’s AI-powered a
 1. Upload the plugin files to the `/wp-content/plugins/altly` directory, or install the plugin through
    the WordPress plugins screen directly.
 2. Activate the plugin through the 'Plugins' screen in WordPress.
-3. Navigate to **Tools > Altly - AI Text Generator** to enter your API license key.
+3. Navigate to **Media > Generate Alt Text** to enter your Altly API key.
 4. Use the dashboard to view images missing alt text, bulk generate alt text, or clear alt text as needed.
+5. To receive automatic updates, add your Prolific Digital license key to `wp-config.php`:
+   `define( 'PROLIFIC_LICENSE_KEY_ALTLY', 'your-key' );`
 
 == Frequently Asked Questions ==
 = How does this plugin generate alt text? =
@@ -37,6 +38,14 @@ Yes, you can clear all alt text via the settings page. It is recommended to back
 2. **Settings Page:** Allows you to configure your API key and manage alt text generation.
 
 == Changelog ==
+= 1.2.0 =
+* Changed: updates now come from the Prolific Digital license server instead of GitHub Releases. Define `PROLIFIC_LICENSE_KEY_ALTLY` in `wp-config.php` to receive them.
+* Changed: plugin-update-checker is installed with Composer instead of bundled in the repository.
+* Changed: requires WordPress 6.5+ and PHP 8.4+.
+* Added: translations load from `languages/`.
+* Added: uninstalling removes the Altly settings and the sync cron event (alt text and attachment meta are kept).
+* Removed: the `ALTLY_UPDATE_REPO_URL` constant and `altly_update_repo_url` filter.
+
 = 1.1.1 =
 * Fixed: saving a new API key now takes effect immediately — Bulk Generate and the credits check use the fresh key without needing a page reload.
 * Fixed: the low-credit notice no longer shows the "credits are exhausted" message when credits remain; it now reports the actual remaining balance.
@@ -52,6 +61,9 @@ Yes, you can clear all alt text via the settings page. It is recommended to back
 * Provides an intuitive admin interface for API key configuration.
 
 == Upgrade Notice ==
+= 1.2.0 =
+Requires PHP 8.4+. Updates now come from the Prolific Digital license server; add `PROLIFIC_LICENSE_KEY_ALTLY` to wp-config.php.
+
 = 1.1.0 =
 This release must be installed manually (upload the zip via Plugins > Add New > Upload Plugin) — it is the first version with the self-update checker, so earlier versions cannot detect or install it automatically. Every release after this one is offered automatically.
 

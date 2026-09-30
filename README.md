@@ -9,12 +9,40 @@ Altly is a cutting-edge plugin that seamlessly integrates Altly’s AI-powered a
 - [Developer Documentation](https://prolificdigital.notion.site/Developer-Documentation-1965efcd8c5f80479165da95acd57d6e "Official Developer Documentation")
 - [User Documentation](https://prolificdigital.notion.site/Altly-User-Documention-19b5efcd8c5f807cbd9bdfd14bfe2c52 "Official User Documentation")
 
+| | |
+|---|---|
+| Requires | WordPress 6.5+, PHP 8.4+ |
+| Text domain | `altly` |
+| License | GPL-2.0-or-later |
+
 ## Installation
 
-Upload the generated **altly.zip** folder through the WordPress backend.
+Download `altly.zip` from a [GitHub release](https://github.com/prolific-digital/altly-wp-plugin/releases) and upload it through the WordPress backend.
 
 1.  In your WordPress admin panel, go to **Plugins > Add New > Upload Plugin**.
 2.  Select and upload the **altly.zip** file, then activate the plugin.
+3.  Enter your Altly API key under **Media > Generate Alt Text**.
+
+### Updates
+
+Updates are served by the Prolific Digital license server. Add the site's license key to `wp-config.php`:
+
+```php
+define( 'PROLIFIC_LICENSE_KEY_ALTLY', 'your-key' );
+```
+
+You can also supply the key with the `prolific_license_key` filter, which receives `( $key, 'altly' )`. See `PLUGIN-UPDATES.md`.
+
+## Stored data
+
+| Key | Type | Notes |
+|---|---|---|
+| `altly_license_key` | option | Altly API key |
+| `altly_default_mode` | option | Instant / Relaxed default |
+| `altly_sync_results_cron` | cron event | hourly pull backstop |
+| `_altly_queued`, `_altly_managed` | attachment meta | queue / scope flags |
+
+Uninstalling deletes the two options and the cron event. Alt text and attachment meta are kept.
 
 ## Developer Guide
 
@@ -28,9 +56,10 @@ Upload the generated **altly.zip** folder through the WordPress backend.
     ```
 
 2.  **Install Dependencies:**
-    Use either npm or yarn:
+    Run `composer install` (plugin-update-checker and the phpcs toolchain), then install the JS packages with npm or yarn:
 
     ```
+    composer install
     npm install
     # or
     yarn
@@ -77,15 +106,15 @@ REACT_APP_API_QUEUE_URL=https://api.altly.io/v2/queue
     npm run build
     ```
 
-2.  **Create the ZIP Package:** Run the following command to generate a ZIP file named **altly.zip** that includes all necessary files (PHP files, the `build/` folder, `readme.txt`, etc.), while excluding development files such as source maps and environment files:
+2.  **Check the PHP:** `composer lint` (php -l) and `composer phpcs` (WordPress-Extra + PHPCompatibilityWP).
 
-    ```
-    yarn zip
-    # or
-    npm run zip
-    ```
+### Releasing
 
-3.  **Test the Plugin:** Upload **altly.zip** via the WordPress plugin installer on a clean WordPress setup to ensure that all features function as expected.
+1.  Bump the version in the plugin header, `ALTLY_VERSION`, `readme.txt` `Stable tag` and `package.json`.
+2.  Add a `## [x.y.z] - YYYY-MM-DD` section to `CHANGELOG.md` and a `= x.y.z =` entry to `readme.txt`.
+3.  Merge to `main`, then push a `vx.y.z` tag. The release workflow builds `altly.zip` (with `composer install --no-dev` and the webpack build, honoring `.distignore`) and attaches it to a GitHub Release.
+
+CI and release logic live in the shared workflows in [`prolific-digital/.github`](https://github.com/prolific-digital/.github).
 
 ## Important Note on Local API Development
 
@@ -99,5 +128,4 @@ Include an `Authorization` header with your API key. Delivery is pull-only: the 
 
 ## Changelog
 
-The user-facing changelog lives in `readme.txt` (the WordPress.org-format readme) — see
-its `== Changelog ==` section for the canonical, version-by-version history.
+See `CHANGELOG.md` (Keep a Changelog format; the license server and GitHub release notes read it). `readme.txt` carries a short summary per version.
