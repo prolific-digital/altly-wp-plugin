@@ -64,6 +64,7 @@ module.exports = (env, argv) => {
             globOptions: {
               ignore: [
                 "**/node_modules/**",
+                "**/vendor/**",
                 "**/build/**",
                 "**/.DS_Store",
                 "**/.env",

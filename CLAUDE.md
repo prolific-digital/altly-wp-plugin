@@ -103,13 +103,13 @@ yarn build      # webpack --mode production → writes build/, reads .env
 - `yarn dev` runs webpack-dev-server (writeToDisk: true) and reads **`.env.local`** instead of
   `.env`. Create `.env.local` pointing at your local API (e.g. `http://localhost:3000/v2/...`)
   for local development; it is git-ignored and not present by default.
-- `yarn zip` packages a release. It now references the real main file (`altly.php`), stages a
-  single top-level `altly/` dir, and includes the `languages/` dir (which exists) — so the
-  produced zip contains the plugin bootstrap. Still sanity-check the zip contents before shipping.
+- Run `composer install` (plugin-update-checker lives in the git-ignored `vendor/`). Release
+  zips are built by the shared release workflow, not locally.
 
 Stack: React 18 + Tailwind, bundled by webpack 5 via Babel; `dotenv-webpack` injects the
-`REACT_APP_*` vars. Release automation: `.github/workflows/release.yml` runs `yarn zip` on
-`v*.*.*` tags and uploads `altly.zip` to a GitHub Release.
+`REACT_APP_*` vars. Release automation: `.github/workflows/release.yml` calls the shared
+`prolific-digital/.github` release workflow on `v*` tags, which builds `altly.zip` and attaches it to
+a GitHub Release. CI (`.github/workflows/ci.yml`) calls the shared plugin CI workflow.
 
 ## E2E / local WP harness — present
 
@@ -123,13 +123,10 @@ prerequisites and run steps.
 
 ## Other things worth knowing
 
-- **Version:** keep `altly.php`'s `Version:` header, `package.json`'s `version`, and
+- **Version:** keep `altly.php`'s `Version:` header and `ALTLY_VERSION`, `package.json`'s `version`, and
   `readme.txt`'s `Stable tag` in lockstep on every release — do not hardcode a number
   here, since it drifts; the canonical bump-and-release procedure lives in
   `PLUGIN-UPDATES.md`.
-- **`yarn zip`** bundles `altly.php` (the real main file). It previously referenced
-  a non-existent `altly-ai-text-generator.php`, so the zip shipped without the
-  plugin bootstrap — fixed.
 - All REST endpoints (`images`, `validate-key`, `save-key`, `save-mode`,
   `mark-queued`, `clear-alt-text`, `clear-queue`, `sync-results`) gate on `manage_options`
   and, except the GET `images`, verify the `wp_rest` nonce via `altly_verify_rest_nonce()`.

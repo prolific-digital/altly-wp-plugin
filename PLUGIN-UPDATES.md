@@ -1,99 +1,62 @@
-# Plugin auto-updates via GitHub Releases
+# Plugin auto-updates
 
-This documents how `altly` auto-updates in the field and how to cut a release. The update
-source is **GitHub Releases on the public
-[`prolific-digital/altly-wp-plugin`](https://github.com/prolific-digital/altly-wp-plugin)
-repo** — there is no self-hosted update server.
+This documents how `altly` auto-updates in the field and how to cut a release.
 
 ## 1. Overview
 
-The plugin vendors Plugin Update Checker (PUC) v5.7 and, at `altly.php` require-time, calls
-`PucFactory::buildUpdateChecker($altly_repo_url, __FILE__, 'altly')` with
-`$altly_repo_url` = `ALTLY_UPDATE_REPO_URL` (default
-`https://github.com/prolific-digital/altly-wp-plugin/`, overridable per-site via a
-`wp-config.php` constant or the `altly_update_repo_url` filter). Because the URL points at
-`github.com`, PUC's factory (`PucFactory::buildUpdateChecker`,
-`vendor/plugin-update-checker/Puc/v5p7/PucFactory.php`) auto-detects the GitHub VCS provider
-and returns a `Vcs\PluginUpdateChecker` wired to `Vcs\GitHubApi` — the same public
-`getVcsApi()` accessor and `enableReleaseAssets()` method used by every VCS-backed PUC
-checker (`vendor/plugin-update-checker/Puc/v5p7/Vcs/VcsCheckerMethods.php` and
-`Vcs/ReleaseAssetSupport.php`). The bootstrap in `altly.php` calls
-`$altly_update_checker->getVcsApi()->enableReleaseAssets('/altly\.zip$/i')` so PUC installs
-the **attached `altly.zip` release asset**, not GitHub's auto-generated "Source code (zip)"
-archive — the auto-generated archive unpacks to a `altly-wp-plugin-<tag>/` directory, which
-would break WordPress's expectation that the plugin lives in a directory matching its slug
-(`altly/`).
+Since 1.2.0 the plugin updates from the **Prolific Digital license server**, like every other
+Prolific plugin. Plugin Update Checker (PUC) ^5.7 is installed with Composer (`vendor/` is not
+committed; release zips include it). `includes/update-checker.php`, loaded from `altly.php`
+after `vendor/autoload.php`, calls:
 
-PUC polls GitHub's Releases API twice daily and shows a normal WP Dashboard update notice
-when a newer tagged release is available — same UX as a wordpress.org plugin.
+```php
+PucFactory::buildUpdateChecker(
+	'https://api.prolificdigital.io/api/update?plugin=altly',
+	ALTLY_PLUGIN_FILE,
+	'altly'
+);
+```
+
+and adds a `license_key` query arg when a key is configured, either with the
+`PROLIFIC_LICENSE_KEY_ALTLY` constant in `wp-config.php` or the `prolific_license_key`
+filter (`( $key, 'altly' )`). If `vendor/` is missing (a git checkout without
+`composer install`), the updater is skipped and the rest of the plugin still boots.
+
+The `Update URI` header points at the same license-server URL, so WordPress core never
+checks wordpress.org for an `altly` slug.
+
+### Sites on 1.1.x
+
+1.1.0 and 1.1.1 poll **GitHub Releases** on `prolific-digital/altly-wp-plugin` for an
+attached `altly.zip`. The shared release workflow still attaches `altly.zip` to each GitHub
+Release, so those sites can pick up 1.2.0 from GitHub while the repo stays public. From 1.2.0
+on, sites poll the license server only. The old `ALTLY_UPDATE_REPO_URL` constant and
+`altly_update_repo_url` filter no longer do anything.
 
 ## 2. Cutting a release
 
-1. Bump the version in lockstep across three files:
-   - `altly.php`'s `Version:` header
-   - `package.json`'s `version`
-   - `readme.txt`'s `Stable tag`
-2. Commit the version bump.
-3. Tag the commit `vX.Y.Z` and push the tag:
-   ```
-   git tag vX.Y.Z
-   git push origin vX.Y.Z
-   ```
-4. `.github/workflows/release.yml` triggers on `v*.*.*` tags, runs `yarn zip` (producing
-   `altly.zip` with a single top-level `altly/` directory, vendored PUC included), and uses
-   `softprops/action-gh-release@v2` to create a GitHub Release with `altly.zip` attached.
-   That attached zip **is** the distribution — nothing is uploaded anywhere else.
-5. Every site with PUC installed and polling this repo picks up the new version within its
-   next check (twice daily by default).
+1. Bump the version in lockstep: `altly.php`'s `Version:` header and `ALTLY_VERSION`,
+   `package.json`'s `version`, and `readme.txt`'s `Stable tag`.
+2. Add a `## [x.y.z] - YYYY-MM-DD` section to `CHANGELOG.md` and a `= x.y.z =` entry to
+   `readme.txt`.
+3. Merge to `main`, then tag the commit `vX.Y.Z` and push the tag.
+4. `.github/workflows/release.yml` calls the shared
+   `prolific-digital/.github` release workflow: it checks the tag equals the header
+   Version, runs `composer install --no-dev` and the webpack build, zips the plugin into
+   `altly.zip` (top-level `altly/`, honoring `.distignore`) and attaches it to a GitHub
+   Release whose notes come from `CHANGELOG.md`.
+5. The license server serves the new version to licensed sites.
 
-## 3. Baseline, then auto — critical sequencing
+## 3. Security notes
 
-1. **Baseline (`1.1.0`) must be installed MANUALLY on every site, no exceptions.** Sites
-   running pre-PUC versions of `altly` have no update-checker code at all, so they cannot
-   discover or install anything published as a GitHub Release — the very first PUC-carrying
-   release has to be installed by hand (or however each site's current deploy process
-   works). This install also normalizes the plugin's on-disk folder name to `altly/`, which
-   matters because PUC derives its slug from `__FILE__`'s parent directory — a mismatched
-   folder name would break the version comparison against the GitHub release tag.
-2. **Only after 100% of sites are confirmed on `1.1.0`** do later releases become fully
-   passive, following the cadence in Section 2 above.
-3. **Cross-repo gate:** removing the legacy push-based delivery path on the API side was
-   gated on that same 100%-migrated condition — see `altly-platform/DEPLOY.md` Stage 4.
-   As of 2026-07-05 the API-side push removal has shipped to production (the API no
-   longer POSTs to customer sites; delivery is pull-only). There were **no live customer
-   sites using Altly** when it shipped (confirmed 2026-07-05), so there was nothing to
-   migrate and no site lost delivery — the gate was moot at cutover. It remains the
-   binding rule going forward: once real sites exist, a pre-1.1.0 (pre-PUC, push-only)
-   build has no way to pull results, so never remove a delivery path server-side until
-   every site is confirmed on a pull-capable version.
-
-## 4. Verify a release
-
-```
-gh release view vX.Y.Z -R prolific-digital/altly-wp-plugin
-```
-
-Confirm `altly.zip` is listed as an attached asset. Then, on a site running PUC and pointed
-at this repo, check Dashboard → Updates (or Plugins) — the new version should be offered
-(allow up to one poll interval, or trigger a manual check if the install exposes one).
-
-## 5. Security notes
-
-- The repo is **public**, so no GitHub token/credential ships with the plugin. A private
-  repo would require `->setAuthentication('<token>')` on the update checker — never embed
-  a token in a shipped plugin; if the repo ever goes private, the auth token must be
-  supplied per-site (e.g. via `wp-config.php`), not hardcoded in `altly.php`.
-- The `Update URI: https://github.com/prolific-digital/altly-wp-plugin` plugin header
-  points WordPress core at the real update source, so it skips its wordpress.org update
-  check for this plugin — this matters because a same-named `altly` slug could otherwise
-  appear on wordpress.org and hijack the update flow. Don't remove this header.
-- Do not edit the vendored PUC files under `vendor/plugin-update-checker/`.
+- No GitHub token or other credential ships with the plugin.
+- Keep the `Update URI` header; it stops a same-named wordpress.org plugin from hijacking
+  the update flow.
+- Do not commit `vendor/`; it is built into the release zip by Composer.
 
 ## Notes
 
-- **Migration gate — resolved (no live sites at cutover):** the 100%-migration gate that
-  fronts push removal (Section 3) was moot when push removal shipped to prod (2026-07-05)
-  because there were no live customer sites using Altly (confirmed 2026-07-05). No site
-  lost delivery. The gate stays the binding rule for any future push-removal-style change
-  once real sites exist — track installed plugin versions and confirm 100% on a
-  pull-capable build before removing a server-side delivery path.
+- **Migration gate (historic):** the 100%-migration gate that fronted removal of the legacy
+  push delivery path was moot when push removal shipped to prod (2026-07-05) because there
+  were no live customer sites. It stays the binding rule for any future change that removes
+  a server-side delivery path: confirm every site is on a capable build first.
