@@ -19,7 +19,7 @@
 if (! defined('ABSPATH')) {
   define('ABSPATH', __DIR__ . '/');
 }
-// altly.php's bootstrap now wires up the vendored plugin-update-checker at
+// altly.php's bootstrap wires up plugin-update-checker (Composer) at
 // require-time, which needs these two WP core constants to exist (real
 // WordPress always defines them before any plugin loads).
 if (! defined('WP_PLUGIN_DIR')) {
@@ -54,9 +54,9 @@ function add_action($hook, $cb, $priority = 10, $args = 1) {}
 function apply_filters($hook, $value) {
   return $value;
 }
-// The rest of these are pulled in transitively by the vendored
-// plugin-update-checker's constructor (wired up at altly.php require-time as
-// of the self-hosted auto-update feature) — not touched by the assertions
+// The rest of these are pulled in transitively by plugin-update-checker's
+// constructor (Composer dependency, wired up at altly.php require-time via
+// includes/update-checker.php when vendor/ is installed) — not touched by the assertions
 // below, just needed so `require`ing altly.php doesn't fatal.
 function esc_html($s) {
   return $s;

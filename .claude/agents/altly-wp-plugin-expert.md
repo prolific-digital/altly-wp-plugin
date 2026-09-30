@@ -61,13 +61,12 @@ overrides for one batch; account default saved via `altly/v1/save-mode`. **Backw
 compat:** older builds send no `mode` — the API treats missing `mode` as Instant, so
 never make it required.
 
-**6. Self-updates via PUC — GitHub Releases only, never edit vendored PUC.** The plugin
-vendors Plugin Update Checker v5 and points it at GitHub Releases on the public
-`prolific-digital/altly-wp-plugin` repo (no self-hosted update server). Cutting a release
-means bumping `altly.php`/`package.json`/`readme.txt` versions in lockstep, then tagging
-`vX.Y.Z` and pushing the tag — `.github/workflows/release.yml` builds `altly.zip` and
-attaches it to a GitHub Release, which is what PUC installs. Never edit anything under
-`vendor/plugin-update-checker/`. Full runbook: `PLUGIN-UPDATES.md`.
+**6. Self-updates via PUC — Prolific license server.** Plugin Update Checker ^5.7 is a
+Composer dependency (`vendor/` is git-ignored) wired up in `includes/update-checker.php`
+against `https://api.prolificdigital.io/api/update?plugin=altly`. Cutting a release means
+bumping `altly.php`/`ALTLY_VERSION`/`package.json`/`readme.txt` versions in lockstep, adding
+a CHANGELOG.md section, then tagging `vX.Y.Z` and pushing the tag — the shared release
+workflow builds `altly.zip` and attaches it to a GitHub Release. Full runbook: `PLUGIN-UPDATES.md`.
 
 ## Other things worth knowing
 
