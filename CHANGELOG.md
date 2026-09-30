@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - 2026-09-29
 
 ### Changed
-- Updates now come from the Prolific Digital license server (`api.prolificdigital.io`) instead of GitHub Releases. Set `PROLIFIC_LICENSE_KEY_ALTLY` in `wp-config.php` (or use the `prolific_license_key` filter) to receive updates. The release workflow still attaches `altly.zip` to GitHub Releases, so 1.1.x sites can update to 1.2.0 from GitHub.
+- Updates now come from the Prolific Digital license server (`api.prolificdigital.io`) instead of GitHub Releases. Altly is free-tier on the license server, so no license key is needed (`PROLIFIC_LICENSE_KEY_ALTLY` / the `prolific_license_key` filter are honored if set). The release workflow still attaches `altly.zip` to GitHub Releases, so 1.1.x sites can update to 1.2.0 from GitHub.
 - plugin-update-checker is now installed with Composer (^5.7) instead of a copy bundled in the repository.
 - Requires WordPress 6.5+ and PHP 8.4+.
 - Plugin header follows the Prolific plugin standard; `ALTLY_VERSION` and `ALTLY_PLUGIN_FILE` constants added.

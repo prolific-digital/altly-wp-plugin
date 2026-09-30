@@ -18,8 +18,7 @@ Altly is a cutting-edge plugin that seamlessly integrates Altly’s AI-powered a
 2. Activate the plugin through the 'Plugins' screen in WordPress.
 3. Navigate to **Media > Generate Alt Text** to enter your Altly API key.
 4. Use the dashboard to view images missing alt text, bulk generate alt text, or clear alt text as needed.
-5. To receive automatic updates, add your Prolific Digital license key to `wp-config.php`:
-   `define( 'PROLIFIC_LICENSE_KEY_ALTLY', 'your-key' );`
+5. Automatic updates come from the Prolific Digital license server and need no license key.
 
 == Frequently Asked Questions ==
 = How does this plugin generate alt text? =
@@ -39,7 +38,7 @@ Yes, you can clear all alt text via the settings page. It is recommended to back
 
 == Changelog ==
 = 1.2.0 =
-* Changed: updates now come from the Prolific Digital license server instead of GitHub Releases. Define `PROLIFIC_LICENSE_KEY_ALTLY` in `wp-config.php` to receive them.
+* Changed: updates now come from the Prolific Digital license server instead of GitHub Releases (no license key needed).
 * Changed: plugin-update-checker is installed with Composer instead of bundled in the repository.
 * Changed: requires WordPress 6.5+ and PHP 8.4+.
 * Added: translations load from `languages/`.
@@ -62,7 +61,7 @@ Yes, you can clear all alt text via the settings page. It is recommended to back
 
 == Upgrade Notice ==
 = 1.2.0 =
-Requires PHP 8.4+. Updates now come from the Prolific Digital license server; add `PROLIFIC_LICENSE_KEY_ALTLY` to wp-config.php.
+Requires PHP 8.4+. Updates now come from the Prolific Digital license server.
 
 = 1.1.0 =
 This release must be installed manually (upload the zip via Plugins > Add New > Upload Plugin) — it is the first version with the self-update checker, so earlier versions cannot detect or install it automatically. Every release after this one is offered automatically.

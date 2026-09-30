@@ -25,13 +25,7 @@ Download `altly.zip` from a [GitHub release](https://github.com/prolific-digital
 
 ### Updates
 
-Updates are served by the Prolific Digital license server. Add the site's license key to `wp-config.php`:
-
-```php
-define( 'PROLIFIC_LICENSE_KEY_ALTLY', 'your-key' );
-```
-
-You can also supply the key with the `prolific_license_key` filter, which receives `( $key, 'altly' )`. See `PLUGIN-UPDATES.md`.
+Updates are served by the Prolific Digital license server. Altly is a free-tier entry there (customers authenticate to the Altly API with their Altly API key), so no Prolific license key is needed. The standard `PROLIFIC_LICENSE_KEY_ALTLY` constant and `prolific_license_key` filter are still honored if set. See `PLUGIN-UPDATES.md`.
 
 ## Stored data
 

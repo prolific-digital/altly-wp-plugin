@@ -19,7 +19,9 @@ PucFactory::buildUpdateChecker(
 
 and adds a `license_key` query arg when a key is configured, either with the
 `PROLIFIC_LICENSE_KEY_ALTLY` constant in `wp-config.php` or the `prolific_license_key`
-filter (`( $key, 'altly' )`). If `vendor/` is missing (a git checkout without
+filter (`( $key, 'altly' )`). Altly is registered as a **free** plugin on the license
+server (customers authenticate to the Altly API with their Altly key, not a Prolific
+license), so updates are served without a key. If `vendor/` is missing (a git checkout without
 `composer install`), the updater is skipped and the rest of the plugin still boots.
 
 The `Update URI` header points at the same license-server URL, so WordPress core never
@@ -45,7 +47,7 @@ on, sites poll the license server only. The old `ALTLY_UPDATE_REPO_URL` constant
    Version, runs `composer install --no-dev` and the webpack build, zips the plugin into
    `altly.zip` (top-level `altly/`, honoring `.distignore`) and attaches it to a GitHub
    Release whose notes come from `CHANGELOG.md`.
-5. The license server serves the new version to licensed sites.
+5. The license server serves the new version to every site (free tier).
 
 ## 3. Security notes
 
