@@ -1,22 +1,26 @@
 <?php
 
 /**
- * Plugin Name: Altly - AI Text Generator
- * Description: Generates detailed alt text for images using AI.
- * Version: 1.1.1
- * Author: Prolific Digital
- * Author URI: https://altly.ai
- * Text Domain: altly
- * Requires at least: 5.6
- * Requires PHP: 7.2
- * License: GPL-2.0-or-later
- * Tested up to: 6.7
- * Update URI: https://github.com/prolific-digital/altly-wp-plugin
+ * Plugin Name:       Altly - AI Text Generator
+ * Plugin URI:        https://prolificdigital.com
+ * Description:       Generates detailed alt text for images in the WordPress media library using the Altly AI service.
+ * Version:           1.2.0
+ * Requires at least: 6.5
+ * Requires PHP:      8.4
+ * Author:            Prolific Digital
+ * Author URI:        https://prolificdigital.com
+ * License:           GPL-2.0-or-later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       altly
+ * Domain Path:       /languages
+ * Update URI:        https://api.prolificdigital.io/api/update?plugin=altly
+ *
+ * @package Altly
  */
 
-if (! defined('ABSPATH')) {
-  exit; // Exit if accessed directly.
-}
+defined( 'ABSPATH' ) || exit;
+
+define('ALTLY_VERSION', '1.2.0');
 
 // Define plugin directory and API endpoints.
 define('ALTLY_PLUGIN_FILE', __FILE__);
@@ -49,6 +53,13 @@ if (is_readable(ALTLY_PLUGIN_DIR . 'vendor/autoload.php')) {
 }
 
 require_once ALTLY_PLUGIN_DIR . 'includes/update-checker.php';
+
+/**
+ * Load bundled translations from /languages (the header's Domain Path).
+ */
+add_action('init', static function () {
+  load_plugin_textdomain('altly', false, dirname(plugin_basename(ALTLY_PLUGIN_FILE)) . '/languages');
+});
 
 /**
  * Plugin activation hook.
